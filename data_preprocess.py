@@ -61,10 +61,14 @@ for col in columns:
     values = data[col]
     nonzero = values[values != 0]
 
+    # log-spaced bins so the long right tail doesn't squash everything into the first bin
+    bins = np.logspace(np.log10(nonzero.min()), np.log10(nonzero.max()), 50)
+
     fig, ax = plt.subplots(figsize=(6, 4))
-    ax.hist(nonzero, bins=50, color='darkorange', edgecolor='white')
+    ax.hist(nonzero, bins=bins, color='darkorange', edgecolor='white')
+    ax.set_xscale('log')
     ax.set_title(f'{col} (zeros dropped)\n(n={len(nonzero)}, dropped={len(values) - len(nonzero)})')
-    ax.set_xlabel(col)
+    ax.set_xlabel(f'{col} (log scale)')
     ax.set_ylabel('Count')
     fig.tight_layout()
 
