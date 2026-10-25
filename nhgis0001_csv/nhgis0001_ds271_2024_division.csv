@@ -1,0 +1,10 @@
+GISJOIN,YEAR,STUSAB,REGIONA,DIVISION,DIVISIONA,STATEA,COUNTYA,COUSUBA,PLACEA,AIANHHA,ANRCA,CBSAA,CSAA,METDIVA,UAA,CDCURRA,SDELMA,SDSECA,SDUNIA,PCI,PUMAA,GEO_ID,TL_GEO_ID,NAME_E,ATLOE001,NAME_M,ATLOM001
+"G1","2024","US",,"New England Division","1",,,,,,,,,,,,,,,,,"0300000US1",,"New England Division",15386085,"New England Division",-555555555
+"G2","2024","US",,"Middle Atlantic Division","2",,,,,,,,,,,,,,,,,"0300000US2",,"Middle Atlantic Division",42446850,"Middle Atlantic Division",-555555555
+"G3","2024","US",,"East North Central Division","3",,,,,,,,,,,,,,,,,"0300000US3",,"East North Central Division",47619171,"East North Central Division",-555555555
+"G4","2024","US",,"West North Central Division","4",,,,,,,,,,,,,,,,,"0300000US4",,"West North Central Division",21977414,"West North Central Division",-555555555
+"G5","2024","US",,"South Atlantic Division","5",,,,,,,,,,,,,,,,,"0300000US5",,"South Atlantic Division",69676509,"South Atlantic Division",-555555555
+"G6","2024","US",,"East South Central Division","6",,,,,,,,,,,,,,,,,"0300000US6",,"East South Central Division",19916866,"East South Central Division",-555555555
+"G7","2024","US",,"West South Central Division","7",,,,,,,,,,,,,,,,,"0300000US7",,"West South Central Division",43072318,"West South Central Division",-555555555
+"G8","2024","US",,"Mountain Division","8",,,,,,,,,,,,,,,,,"0300000US8",,"Mountain Division",26167684,"Mountain Division",-555555555
+"G9","2024","US",,"Pacific Division","9",,,,,,,,,,,,,,,,,"0300000US9",,"Pacific Division",53848093,"Pacific Division",-555555555

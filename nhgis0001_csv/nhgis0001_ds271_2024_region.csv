@@ -1,0 +1,5 @@
+GISJOIN,YEAR,STUSAB,REGION,REGIONA,DIVISIONA,STATEA,COUNTYA,COUSUBA,PLACEA,AIANHHA,ANRCA,CBSAA,CSAA,METDIVA,UAA,CDCURRA,SDELMA,SDSECA,SDUNIA,PCI,PUMAA,GEO_ID,TL_GEO_ID,NAME_E,ATLOE001,NAME_M,ATLOM001
+"G1","2024","US","Northeast Region","1",,,,,,,,,,,,,,,,,,"0200000US1",,"Northeast Region",57832935,"Northeast Region",-555555555
+"G2","2024","US","Midwest Region","2",,,,,,,,,,,,,,,,,,"0200000US2",,"Midwest Region",69596585,"Midwest Region",-555555555
+"G3","2024","US","South Region","3",,,,,,,,,,,,,,,,,,"0200000US3",,"South Region",132665693,"South Region",-555555555
+"G4","2024","US","West Region","4",,,,,,,,,,,,,,,,,,"0200000US4",,"West Region",80015777,"West Region",-555555555
