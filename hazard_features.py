@@ -3,7 +3,7 @@ import pandas as pd
 
 
 # hazard features from NOAA nClimDiv climate-division monthly precipitation.
-# run build_features.py first to create model_data.csv
+# run build_features_DU.py first to create model_data_DU.csv
 #   precipitation: https://www.ncei.noaa.gov/monitoring-content/data/us/climdiv/monthly/current/
 #   county lookup: https://www.ncei.noaa.gov/pub/data/cirs/climdiv/county-to-climdivs.txt
 PRECIP_FILE = 'external_data/noaa/climdiv-pcpndv-v1.0.0-20261006.txt'
@@ -54,6 +54,9 @@ for col in ['annual_precip', 'max_month_precip', 'spring_precip', 'prior_fall_pr
     mean = rain['division'].map(baseline[col].mean())
     std = rain['division'].map(baseline[col].std())
     rain[col + '_anom'] = (rain[col] - mean) / std
+
+# every division-year, flooded or not, for the full county-year panel (build_panel.py)
+rain.to_csv('hazard_by_division.csv', index=False)
 
 
 # ---------------------------------------------------------------

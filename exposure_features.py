@@ -80,7 +80,10 @@ for child, parent in SUCCESSOR_TO_PARENT.items():
 # each year uses the most recent census at or before it, so no later census
 # leaks in. 1960-69 has no earlier census, so it falls back to the first one
 model = pd.read_csv('model_data_DU.csv', dtype={'County_FIPS': str})
-base = model[['County_FIPS', 'Year']].sort_values('Year')
+# every county-year, flooded or not, so the full panel (build_panel.py) can reuse it
+base = pd.MultiIndex.from_product([model['County_FIPS'].unique(), range(1960, 2025)],
+                                  names=['County_FIPS', 'Year']).to_frame(index=False)
+base = base.sort_values('Year')
 right = census.sort_values('census_year')
 past = pd.merge_asof(base, right, left_on='Year', right_on='census_year',
                      by='County_FIPS', direction='backward')
@@ -94,6 +97,7 @@ farm_cols = list(farm.columns)
 exposure = exposure[housing_cols].reset_index()
 exposure = exposure.merge(farm, left_on='County_FIPS', right_index=True, how='left')
 exposure_cols = housing_cols + farm_cols
+exposure.to_csv('exposure_by_county_year.csv', index=False)
 
 model = model.merge(exposure, on=['County_FIPS', 'Year'], how='left')
 print('rows without housing data:', model['log_housing_units'].isna().sum())

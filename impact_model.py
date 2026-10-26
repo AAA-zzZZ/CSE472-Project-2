@@ -4,7 +4,7 @@ import pandas as pd
 
 # impact model tau(w; x, c): predicts a county's flood loss from the hazard (w),
 # what is exposed (x) and the county's context (c), using linear regression.
-# run exposure_features.py first to create model_data_combined.csv
+# run climatology_features.py first to create model_data_climatology.csv
 TARGET = 'log_PropertyDmgADJ'
 
 # w: how bad the hazard was. same-year rainfall is observed, not forecast, so
@@ -17,8 +17,19 @@ PRE_EVENT_HAZARD_COLS = ['prior_fall_precip_anom']
 EXPOSURE_COLS = ['log_population', 'log_housing_units', 'log_rural_units',
                  'urban_share', 'housing_growth', 'log_crop_value_1919']
 
-# c: how the county has fared before, plus state (added as dummies below)
-# State is added separately as dummies in design 
+# c: climatology, how often floods hit the county in the long run (floods per
+# year in 1960-1999, before the study period, so fixed and leak-free).
+# c_records_per_year is left out: it is 0.83 correlated with c_flood_freq
+CLIMATOLOGY_COLS = ['c_flood_freq', 'c_big_flood_freq']
+
+# cross-check: climatology from the FEMA National Risk Index, independent of
+# SHELDUS reporting. the floodplain share comes from flood maps; the frequency
+# counts 1996-2019 events, which overlaps the study period, so it is not a main feature
+NRI_COLS = ['nri_flood_freq', 'nri_floodplain_share']
+
+# running county history (grows over time, so it drifts between train and test).
+# kept only for comparison with the climatology features.
+# State is added separately as dummies in design
 CONTEXT_COLS = ['crop_failure_rate_1934', 'prior_flood_years', 'years_since_last_flood',
                 'prior_median_log_dmg', 'prior_max_log_dmg', 'prior_crop_share']
 
@@ -27,7 +38,7 @@ CONTEXT_COLS = ['crop_failure_rate_1934', 'prior_flood_years', 'years_since_last
 # 1. split by time, as in the evaluation setup
 # ---------------------------------------------------------------
 # learn from 2000-2016, test on 2017-2023
-data = pd.read_csv('model_data_combined.csv', dtype={'County_FIPS': str})
+data = pd.read_csv('model_data_climatology.csv', dtype={'County_FIPS': str})
 train = data[data['Year'].between(2000, 2016)].reset_index(drop=True)
 test = data[data['Year'].between(2017, 2023)].reset_index(drop=True)
 print(f'train 2000-2016: {len(train)} county-years, test 2017-2023: {len(test)} county-years')
@@ -79,9 +90,18 @@ def scores(df, pred):
 
 models = {
     'exposure (x)': EXPOSURE_COLS,
-    'exposure + context (x, c)': EXPOSURE_COLS + CONTEXT_COLS,
-    'pre-event only (w0, x, c)': PRE_EVENT_HAZARD_COLS + EXPOSURE_COLS + CONTEXT_COLS,
-    'full tau (w, x, c)': HAZARD_COLS + EXPOSURE_COLS + CONTEXT_COLS,
+    'x + history': EXPOSURE_COLS + CONTEXT_COLS,
+    'x + climatology (x, c)': EXPOSURE_COLS + CLIMATOLOGY_COLS,
+    'pre-event, history (w0, x, hist)': PRE_EVENT_HAZARD_COLS + EXPOSURE_COLS + CONTEXT_COLS,
+    'pre-event (w0, x, c)': PRE_EVENT_HAZARD_COLS + EXPOSURE_COLS + CLIMATOLOGY_COLS,
+    'hazard + x, no c (w, x)': HAZARD_COLS + EXPOSURE_COLS,
+    'full, history (w, x, hist)': HAZARD_COLS + EXPOSURE_COLS + CONTEXT_COLS,
+    'full tau (w, x, c)': HAZARD_COLS + EXPOSURE_COLS + CLIMATOLOGY_COLS,
+    'full tau + history (w, x, c, hist)': HAZARD_COLS + EXPOSURE_COLS + CLIMATOLOGY_COLS
+                                          + CONTEXT_COLS,
+    'cross-check: full, NRI c (w, x, c_nri)': HAZARD_COLS + EXPOSURE_COLS + NRI_COLS,
+    'cross-check: full, both c (w, x, c, c_nri)': HAZARD_COLS + EXPOSURE_COLS + CLIMATOLOGY_COLS
+                                                  + NRI_COLS,
 }
 
 results = {'train median': scores(test, pd.Series(train[TARGET].median(), index=test.index)),
@@ -98,7 +118,7 @@ print(pd.DataFrame(results).T.round(3).to_string())
 # ---------------------------------------------------------------
 # 3. coefficients of the full model
 # ---------------------------------------------------------------
-features = HAZARD_COLS + EXPOSURE_COLS + CONTEXT_COLS
+features = HAZARD_COLS + EXPOSURE_COLS + CLIMATOLOGY_COLS
 X_train = design(train, features)
 beta = fit(X_train, train[TARGET])
 residual = train[TARGET] - X_train @ beta
@@ -109,9 +129,20 @@ coef = pd.DataFrame({'coef': beta, 'std err': se, 't': beta / se})
 
 print('\nfull model coefficients (per 1 std of each feature):')
 for label, cols in [('w: hazard', HAZARD_COLS), ('x: exposure', EXPOSURE_COLS),
-                    ('c: context', CONTEXT_COLS)]:
+                    ('c: climatology', CLIMATOLOGY_COLS)]:
     print(f'\n{label}')
     print(coef.loc[cols].round(3).to_string())
+
+# the backdoor path w <- c -> a -> y: if frequently flooded counties both get
+# heavier hazards and are better prepared, leaving c out biases the hazard
+# coefficients. compare them with and without c
+beta_no_c = fit(design(train, HAZARD_COLS + EXPOSURE_COLS), train[TARGET])
+beta_nri = fit(design(train, HAZARD_COLS + EXPOSURE_COLS + NRI_COLS), train[TARGET])
+print('\nhazard coefficients without vs with climatology:')
+print(pd.DataFrame({'without c': beta_no_c[HAZARD_COLS], 'with c': beta[HAZARD_COLS],
+                    'with NRI c': beta_nri[HAZARD_COLS]}).round(3).to_string())
+print('\nNRI climatology coefficients (cross-check model):')
+print(beta_nri[NRI_COLS].round(3).to_string())
 
 
 # ---------------------------------------------------------------
@@ -126,7 +157,7 @@ true_beta['const'] = 4.8
 true_beta['max_month_precip_anom'] = 0.3
 true_beta['spring_precip_anom'] = 0.15
 true_beta['log_housing_units'] = 0.5
-true_beta['prior_median_log_dmg'] = 0.4
+true_beta['c_flood_freq'] = 0.4
 noise = residual.std()
 
 X_test = design(test, features)
