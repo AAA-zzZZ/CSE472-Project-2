@@ -3,11 +3,14 @@ import pandas as pd
 
 
 # read FIPS as a string so leading zeros (e.g. '01001') are never lost
+# this is because many counties start with a leading zero, but pandas needs to read it 
 data = pd.read_csv('loss_output_year_county.csv', dtype={'County_FIPS': str})
 print(f'loaded {len(data)} rows, {data.shape[1]} columns')
 
+# group everything int raw and inflation adjusted dollars 
 dollar_cols = ['CropDmg', 'CropDmg(ADJ 2024)', 'CropDmgPerCapita',
                'PropertyDmg', 'PropertyDmg(ADJ 2024)', 'PropertyDmgPerCapita']
+# just the duration columns 
 duration_cols = ['Crop_Damage_Duration', 'Property_Damage_Duration', 'Duration_Days']
 
 
@@ -16,6 +19,7 @@ duration_cols = ['Crop_Damage_Duration', 'Property_Damage_Duration', 'Duration_D
 # ---------------------------------------------------------------
 print('\n--- 1. data quality checks ---')
 
+# want to remove bad data from the file 
 missing = data.isna().sum()
 print('missing values per column:', missing[missing > 0].to_dict() or 'none')
 
@@ -35,22 +39,22 @@ print('negative values:', negatives[negatives > 0].to_dict() or 'none')
 
 # logical consistency between related columns
 checks = {
-    'crop damage with zero crop duration':
+    'crop damage with zero crop duration':  # if there was damage it lasted at least a day
         (data['CropDmg'] > 0) & (data['Crop_Damage_Duration'] == 0),
     'property damage with zero property duration':
         (data['PropertyDmg'] > 0) & (data['Property_Damage_Duration'] == 0),
-    'crop/property duration longer than total duration':
+    'crop/property duration longer than total duration':  # the damage duration cant be longer than the total duration
         (data['Crop_Damage_Duration'] > data['Duration_Days'])
         | (data['Property_Damage_Duration'] > data['Duration_Days']),
     'duration over 366 days': data['Duration_Days'] > 366,
-    'inflation-adjusted value below raw value':
+    'inflation-adjusted value below raw value':  # inflation should make the dollar amount bigger 
         (data['PropertyDmg(ADJ 2024)'] < data['PropertyDmg'])
         | (data['CropDmg(ADJ 2024)'] < data['CropDmg']),
 }
 for name, mask in checks.items():
     print(f'{name}: {mask.sum()}')
 
-# drop anything that failed a check (currently nothing does)
+# drop anything that failed a check (currently nothing does in original SHELDUS)
 invalid = bad_fips | bad_year | (data[dollar_cols + duration_cols] < 0).any(axis=1)
 for mask in checks.values():
     invalid |= mask
@@ -109,6 +113,8 @@ print(data.nlargest(5, 'PropertyDmg(ADJ 2024)')
 # 4. log transform the dollar columns
 # ---------------------------------------------------------------
 print('\n--- 4. log transform ---')
+# lots of $0 or small thousands, so the larger events will dominate the regression
+# now instead we do a log transformation to give the magnitude of the loss of 2024 adjusted 
 
 # log10(x + 1): zero stays zero, $1M becomes 6. use 10 ** y - 1 to undo
 for col in ['CropDmg(ADJ 2024)', 'CropDmgPerCapita',

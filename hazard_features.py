@@ -22,9 +22,9 @@ MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun',
 #   EE = element (01 = precipitation), YYYY = year. -9.99 = missing
 precip = pd.read_csv(PRECIP_FILE, sep=r'\s+', header=None, names=['id'] + MONTHS,
                      dtype={'id': str})
-precip['division'] = precip['id'].str[:4]
+precip['division'] = precip['id'].str[:4]  # give state and divison
 precip['Year'] = precip['id'].str[6:].astype(int)
-precip[MONTHS] = precip[MONTHS].replace(-9.99, np.nan)
+precip[MONTHS] = precip[MONTHS].replace(-9.99, np.nan)  # turn missing data into NAN
 precip = precip.drop(columns='id').sort_values(['division', 'Year']).reset_index(drop=True)
 print(f'loaded {len(precip)} division-years, {precip["division"].nunique()} divisions')
 
@@ -32,11 +32,13 @@ print(f'loaded {len(precip)} division-years, {precip["division"].nunique()} divi
 # ---------------------------------------------------------------
 # 2. yearly rainfall features for each division
 # ---------------------------------------------------------------
+# here we take the 12 numbers and try to turn them into features/variables
+    # annual_precipitation, max month, spring , summer, and prior fall
 rain = precip[['division', 'Year']].copy()
-rain['annual_precip'] = precip[MONTHS].sum(axis=1, min_count=12)
-rain['max_month_precip'] = precip[MONTHS].max(axis=1)
-rain['spring_precip'] = precip[['mar', 'apr', 'may', 'jun']].sum(axis=1)
-rain['summer_precip'] = precip[['jul', 'aug', 'sep']].sum(axis=1)
+rain['annual_precip'] = precip[MONTHS].sum(axis=1, min_count=12)  # total wetness of the year
+rain['max_month_precip'] = precip[MONTHS].max(axis=1)  # a wet month causes floods more directly
+rain['spring_precip'] = precip[['mar', 'apr', 'may', 'jun']].sum(axis=1)  # defrost season might have more run off
+rain['summer_precip'] = precip[['jul', 'aug', 'sep']].sum(axis=1)  # possible monsoon season 
 
 # rain in the previous fall soaks the ground, so the next spring's rain
 # runs off instead of soaking in. this is known before the flood year starts
@@ -47,6 +49,8 @@ rain['prior_fall_precip'] = fall.groupby(precip['division']).shift(1)
 # 1895-1959, before the flood data starts, so no future years leak in
 baseline = rain[rain['Year'] < 1960].groupby('division')
 for col in ['annual_precip', 'max_month_precip', 'spring_precip', 'prior_fall_precip']:
+    # use z score against divisions normal because flooding reasoning can change from place to place
+    # cannot compare raw inches  
     mean = rain['division'].map(baseline[col].mean())
     std = rain['division'].map(baseline[col].std())
     rain[col + '_anom'] = (rain[col] - mean) / std
@@ -69,12 +73,13 @@ print('counties without a division:', model.loc[model['division'].isna(), 'Count
 model = model.merge(rain, on=['division', 'Year'], how='left')
 print('rows without rainfall data:', model['annual_precip'].isna().sum())
 model.to_csv('model_data_hazard.csv', index=False)
-print(f'saved model_data_hazard.csv: {len(model)} rows')
+print(f'saved model_data_hazard.csv: {len(model)} rows')  # put the results within new csv
 
 
 # ---------------------------------------------------------------
 # 4. how strongly does each rainfall feature relate to the target?
 # ---------------------------------------------------------------
+# we use spearman correlation too see how the rainfall measurements move with the damage
 hazard_cols = [c for c in rain.columns if c not in ('division', 'Year')]
 print(f'\nspearman correlation with {TARGET}:')
 corr = model[hazard_cols].corrwith(model[TARGET], method='spearman')
@@ -97,7 +102,7 @@ def mae(pred):
 def fit_predict(features):
     # least absolute deviations, since the score is MAE: start from a
     # least-squares fit, then reweight rows to shrink the influence of outliers
-    def design(df):
+    def design(df):  # feature matrix 
         X = df[features].fillna(train[features].median())
         X = pd.concat([X, pd.get_dummies(df['State'], dtype=float)], axis=1)
         X['const'] = 1.0
@@ -106,14 +111,14 @@ def fit_predict(features):
     X_train = design(train)
     X_test = design(test)[X_train.columns]
     weights = np.ones(len(X_train))
-    for _ in range(50):
+    for _ in range(50):  # least squares 
         w = np.sqrt(weights)[:, None]
         beta, *_ = np.linalg.lstsq(X_train.values * w, train[TARGET].values * w[:, 0], rcond=None)
         residual = np.abs(train[TARGET].values - X_train.values @ beta)
         weights = 1 / np.maximum(residual, 1e-3)
     return X_test.values @ beta
 
-
+# all history data comes from sheldus
 history_cols = ['Year', 'log_population', 'prior_flood_years', 'prior_median_log_dmg',
                 'prior_max_log_dmg', 'last_log_dmg', 'years_since_last_flood',
                 'prior_crop_share', 'prior_mean_records', 'has_history']

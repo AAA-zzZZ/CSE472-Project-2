@@ -9,6 +9,7 @@ data = data.sort_values(['County_FIPS', 'Year']).reset_index(drop=True)
 
 TARGET = 'log_PropertyDmgADJ'
 
+# writes model_data, but was renamed as model_data_DU, so rerunning this will have an issue if rerunning exposureand harzard
 
 # ---------------------------------------------------------------
 # 1. population (known before the flood from the census)
@@ -20,6 +21,10 @@ TARGET = 'log_PropertyDmgADJ'
 prop_pc = data['PropertyDmgPerCapita']
 crop_pc = data['CropDmgPerCapita']
 use_crop = crop_pc > prop_pc
+
+# sheldus has no population column so it is interpreted instead by using damage per capita
+# a higher population means that there may be more damage possible due to more property 
+# should check this possible incorrect data for checking 
 implied_pop = np.where(use_crop,
                        data['CropDmg(ADJ 2024)'] / crop_pc.replace(0, np.nan),
                        data['PropertyDmg(ADJ 2024)'] / prop_pc.replace(0, np.nan))
@@ -36,25 +41,25 @@ print('rows still missing population:', data['population'].isna().sum())
 # ---------------------------------------------------------------
 county = data.groupby('County_FIPS')
 
-data['prior_flood_years'] = county.cumcount()
-data['has_history'] = (data['prior_flood_years'] > 0).astype(int)
-data['years_since_last_flood'] = data['Year'] - county['Year'].shift(1)
+data['prior_flood_years'] = county.cumcount()  # count the amount of years that the county had 
+data['has_history'] = (data['prior_flood_years'] > 0).astype(int)  # flag
+data['years_since_last_flood'] = data['Year'] - county['Year'].shift(1)  # want to see if there is a gap in flood years, may play a role in how often it happens
 
 # shift(1) moves each value down one row, so the current year never sees itself
 past_damage = county[TARGET].shift(1)
 data['last_log_dmg'] = past_damage
-data['prior_median_log_dmg'] = (past_damage.groupby(data['County_FIPS'])
+data['prior_median_log_dmg'] = (past_damage.groupby(data['County_FIPS'])  # typical damage
                                 .transform(lambda s: s.expanding().median()))
-data['prior_max_log_dmg'] = (past_damage.groupby(data['County_FIPS'])
-                             .transform(lambda s: s.expanding().max()))
+data['prior_max_log_dmg'] = (past_damage.groupby(data['County_FIPS'])  # worse damage 
+                             .transform(lambda s: s.expanding().max()))  
 
 past_records = county['Records'].shift(1)
-data['prior_mean_records'] = (past_records.groupby(data['County_FIPS'])
+data['prior_mean_records'] = (past_records.groupby(data['County_FIPS'])  # how many floods actually get logged
                               .transform(lambda s: s.expanding().mean()))
 
 # share of past flood years that also damaged crops (rural vs urban signal)
 past_crop = county['has_crop_damage'].shift(1)
-data['prior_crop_share'] = (past_crop.groupby(data['County_FIPS'])
+data['prior_crop_share'] = (past_crop.groupby(data['County_FIPS'])  # how often the crops actually get hit 
                             .transform(lambda s: s.expanding().mean()))
 
 
@@ -65,9 +70,9 @@ data['prior_crop_share'] = (past_crop.groupby(data['County_FIPS'])
 state_prior = {}
 for state, rows in data.groupby('StateName'):
     for year in rows['Year'].unique():
-        earlier = rows.loc[rows['Year'] < year, TARGET]
+        earlier = rows.loc[rows['Year'] < year, TARGET]  # make sure that each row doesnt have overlap 
         state_prior[(state, year)] = earlier.median() if len(earlier) else np.nan
-data['state_prior_median_log_dmg'] = [state_prior[(s, y)]
+data['state_prior_median_log_dmg'] = [state_prior[(s, y)] 
                                       for s, y in zip(data['StateName'], data['Year'])]
 
 # a county's first recorded flood has no history: fall back to the state's

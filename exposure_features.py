@@ -42,11 +42,11 @@ census = pd.concat(census).dropna(subset=['urban', 'rural'])
 census = census.sort_values(['County_FIPS', 'census_year']).reset_index(drop=True)
 
 total = census['urban'] + census['rural']
-census['log_housing_units'] = np.log1p(total)
-census['log_rural_units'] = np.log1p(census['rural'])
-census['urban_share'] = census['urban'] / total.replace(0, np.nan)
+census['log_housing_units'] = np.log1p(total)  # more homes will mean more damage
+census['log_rural_units'] = np.log1p(census['rural'])  # rural homes are more spread out 
+census['urban_share'] = census['urban'] / total.replace(0, np.nan)  # separate city counties and the farm counties 
 # growth over the previous ten years: new building in places that flood
-census['housing_growth'] = total.groupby(census['County_FIPS']).pct_change()
+census['housing_growth'] = total.groupby(census['County_FIPS']).pct_change()  # new buildings can happen in flood prone areas 
 print(f'loaded {len(census)} county-census years, {census["County_FIPS"].nunique()} counties')
 
 
@@ -65,10 +65,10 @@ def read_old_county_table(path):
 crops = read_old_county_table(CROPS_1919_FILE)
 land = read_old_county_table(LAND_1934_FILE)
 farm = pd.DataFrame(index=crops.index.union(land.index))
-farm['log_crop_value_1919'] = np.log1p(pd.to_numeric(crops['AB4R001']))
+farm['log_crop_value_1919'] = np.log1p(pd.to_numeric(crops['AB4R001']))  # how much crop can be wiped
 # 1934 was a Dust Bowl drought year: the share of farms that lost a crop
 # says how fragile a county's farming is
-farm['crop_failure_rate_1934'] = (pd.to_numeric(land['ACIG002'])
+farm['crop_failure_rate_1934'] = (pd.to_numeric(land['ACIG002'])  # how many crops failed in 1934
                                   / pd.to_numeric(land['ACIG001']))
 for child, parent in SUCCESSOR_TO_PARENT.items():
     farm.loc[child] = farm.reindex([child]).iloc[0].fillna(farm.loc[parent])
@@ -131,7 +131,7 @@ def mae(pred):
 def fit_predict(features):
     # least absolute deviations, since the score is MAE: start from a
     # least-squares fit, then reweight rows to shrink the influence of outliers
-    def design(df):
+    def design(df):  # feature matrix making 
         X = df[features].fillna(train[features].median())
         X = pd.concat([X, pd.get_dummies(df['State'], dtype=float)], axis=1)
         X['const'] = 1.0
@@ -140,14 +140,14 @@ def fit_predict(features):
     X_train = design(train)
     X_test = design(test)[X_train.columns]
     weights = np.ones(len(X_train))
-    for _ in range(50):
+    for _ in range(50):  # least squares 
         w = np.sqrt(weights)[:, None]
         beta, *_ = np.linalg.lstsq(X_train.values * w, train[TARGET].values * w[:, 0], rcond=None)
         residual = np.abs(train[TARGET].values - X_train.values @ beta)
         weights = 1 / np.maximum(residual, 1e-3)
     return X_test.values @ beta
 
-
+# all history data comes from sheldus
 history_cols = ['Year', 'log_population', 'prior_flood_years', 'prior_median_log_dmg',
                 'prior_max_log_dmg', 'last_log_dmg', 'years_since_last_flood',
                 'prior_crop_share', 'prior_mean_records', 'has_history']
