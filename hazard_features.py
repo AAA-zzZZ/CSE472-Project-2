@@ -62,7 +62,7 @@ county_to_div = dict(zip(lookup['POSTAL_FIPS_ID'], lookup['CLIMDIV_ID']))
 county_to_div['46113'] = county_to_div['46102']  # Shannon -> renamed Oglala Lakota (2015)
 county_to_div['46131'] = county_to_div['46071']  # Washabaugh -> merged into Jackson (1983)
 
-model = pd.read_csv('model_data.csv', dtype={'County_FIPS': str})
+model = pd.read_csv('model_data_DU.csv', dtype={'County_FIPS': str})
 model['division'] = model['County_FIPS'].map(county_to_div)
 print('counties without a division:', model.loc[model['division'].isna(), 'County_FIPS'].nunique())
 
