@@ -1,7 +1,66 @@
 # Handoff: Flood Impact Forecasting (CSE 472, Project 2)
 
 Read this first when picking up the project in a new session. It summarizes the
-work through 2026-10-26 on branch `enci-dev`.
+work through 2026-10-29 on branch `enci-dev`.
+
+**Status (2026-10-29):** the instructor reviewed the Initial Model Findings
+report, and the team agreed a new study design (below). The code still runs the
+old county-year design; the results further down come from it and are pipeline
+checks only. No code has been changed for the new design yet.
+
+## Study design (agreed 2026-10-29)
+
+| Decision | Choice |
+|---|---|
+| Unit of analysis | County × month |
+| Period | 2000–2023; train 2000–2016, test 2017–2023 |
+| Events | All flooding in SHELDUS (hazard = Flooding), 12 Midwest states, property damage |
+| Outcome | `direct_loss_aggregated_output_32423.csv` (SHELDUS by county and month) |
+| Inputs | Never from SHELDUS. Time-varying inputs cover 2000–2023 at monthly or finer resolution; static inputs allowed |
+| C (flood climate) | From a non-SHELDUS source, e.g. 1951–1999 extreme-rainfall frequency (NOAA nClimGrid or PRISM) |
+| Spatial unit | County boundaries (gridded data summed per county, e.g. in Google Earth Engine), not NOAA climate divisions |
+
+The panel will be 1,055 counties × 24 years × 12 months = 303,840 rows; 3.2% have
+damage. A quick test (not in the pipeline) found same-month rainfall raised AUC
+within each month from 0.704 to 0.765; month dummies alone added nothing to
+ranking within a month.
+
+## Instructor feedback (Saketh Vishnubhatla, on the findings report)
+
+- SHELDUS supplies the outcome only; all inputs come from other sources.
+- Choose variables from the literature, not by correlation search.
+- Give every variable its definition, source (dataset ID or DOI), and spatial
+  and temporal resolution.
+- Use Google Earth Engine to aggregate to county boundaries instead of climate divisions.
+- Drop the 1919 crop value.
+- Don't read much into the current numbers; show county maps of the inputs
+  rather than more tables.
+- Next method: Bayesian spatial model (Moraga, *Spatial Statistics for Data
+  Science*, ch. 9: https://www.paulamoraga.com/book-spatial/bayesian-spatial-models.html).
+
+## Literature review
+
+`docs/literature_review/literature_review.md` (research notes in
+`docs/literature_review/notes/`). Network limits meant most sources were read
+from abstracts only; numbers marked [snippet] or [unverified] must be checked.
+Main points:
+
+- W: add multi-day maxima (Rx1/3/5day), percentile exceedances, prior-month
+  rainfall, soil moisture and snow (ERA5-Land). Davenport et al. 2021 (PNAS)
+  find monthly and 5-day precipitation both drive US flood damage.
+- C: pre-2000 rainfall climatology from nClimGrid or PRISM. Drop FEMA NRI
+  frequency: it uses the outcome's source and years.
+- X: Annual NLCD impervious and developed share, floodplain share, terrain
+  (height above nearest drainage, slope), soils; census vulnerability
+  components rather than SVI.
+- A: NFIP policies in force, CRS class, buyouts, all lagged one year. NFIP
+  claims and FEMA assistance are never inputs.
+- Methods: hurdle models, gradient-boosted hurdle, Tweedie, BYM2 hurdle in
+  R-INLA; check spatial confounding.
+
+The shared workflow doc on claude.ai ("Flood Impact Forecasting: Project
+Workflow") has the same study design, the literature tables and the pipeline
+checklist.
 
 ## The task
 
@@ -22,7 +81,9 @@ Management of Natural Hazards*, Reviews of Geophysics, doi:10.1029/2020RG000704.
 ## Pipeline (run in this order)
 
 Each script reads the previous one's output. Only numpy and pandas are used;
-scikit-learn is not installed, so models are written with numpy.
+scikit-learn is not installed, so models are written with numpy. pandas'
+Spearman correlation needs scipy (`pip install scipy` if `impact_model.py`
+fails with `No module named 'scipy'`).
 
 | # | Script | Writes |
 |---|---|---|
@@ -118,23 +179,32 @@ county-years, 25.7% with damage.
   reads `model_data_DU.csv`. Rerunning the feature scripts reproduces the existing
   CSVs byte for byte.
 
-## Next steps
+## Next steps (pipeline)
 
-1. Ask the instructor: county-year or event-level? Is "share of the county
-   flooded" expected for W? (The Global Flood Database may only run to ~2018.)
-2. Rank the hurdle model by P(damage) × expected log damage instead of expected
-   dollars, and see if it catches up with the one-part regression.
-3. Add A: NFIP flood insurance policies in force per county (OpenFEMA, ~2009+),
-   in both hurdle parts.
-4. Estimate τ causally: double machine learning for the average effect of W, a
-   causal forest for effects by county type (needs scikit-learn / econml).
-5. Rebuild the simulation with confounding built in (C raises W and A; A lowers
-   Y) and show the naive model is biased while the adjusted one recovers the truth.
-6. Plug in a forecast-like W, rank counties per test year, and report 80%
-   prediction ranges with their coverage.
-7. Decide what to commit: `external_data/fema_nri/` is 24 MB, and the generated
-   CSVs (`model_data_panel.csv`, `hazard_by_division.csv`,
-   `exposure_by_county_year.csv`) can be rebuilt from the scripts.
+1. **Decisions and write-up:** apply the text fixes to the findings report;
+   confirm with the instructor that rainfall-based C, NFIP/CRS as A, and R-INLA
+   are acceptable; verify the flagged literature numbers.
+2. **Variable specification table:** definition, formula, unit, source ID,
+   resolution, aggregation and years for every input.
+3. **Data collection:** Earth Engine script for PRISM county × month rainfall
+   features and ERA5-Land soil moisture and snow; nClimGrid county files for C;
+   Annual NLCD, 3DEP, gNATSGO, floodplain share; OpenFEMA NFIP policies, CRS
+   lists, HMA buyouts; NHGIS/ACS vulnerability components. Open question: how
+   complete OpenFEMA policies are before ~2009.
+4. **Maps:** county map of each input and of 2000–2016 loss.
+5. **Code rebuild:** `build_monthly_panel.py`; replace `hazard_features.py` and
+   `climatology_features.py`; drop history features and 1919 crop value; adapt
+   `hurdle_model.py` to county × month with one results table; decide what to
+   commit (`external_data/fema_nri/` is 24 MB and now unused).
+6. **Models:** baselines (county × calendar-month climatology, current hurdle,
+   ranking by P(damage) × expected log damage); rainfall comparison (monthly
+   only → + multi-day extremes → + antecedent wetness and snow); gradient-boosted
+   hurdle vs Tweedie; BYM2 hurdle in R-INLA; county fixed effects with W × C;
+   confounding simulation (C raises W and A, A lowers Y); forecast-like W with
+   80% prediction ranges.
+7. **Evaluation:** by test year 2017–2023: PR-AUC, ROC-AUC and Brier skill
+   against climatology; rank correlation, top-10% hit, share of loss captured;
+   MAE on damaged months; interval coverage.
 
 ## Working notes
 
