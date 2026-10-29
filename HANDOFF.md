@@ -105,6 +105,18 @@ as SHELDUS; 9,845 county-months (3.2%) have damage, 3.5% in training years and
 monthly level 30% of nonzero property values are round (14% before 1996, 54%
 after), higher than the yearly 24% because summing months blurs round numbers.
 
+**Earth Engine inputs:** `gee/export_county_data.py` exports county means of
+PRISM monthly (1895–2023) and daily (1981–2023) precipitation, ERA5-Land soil
+moisture and snow (1950–2023), NLCD land cover and terrain (height above
+nearest drainage, slope) to Google Drive. It must run on a team member's own
+Earth Engine account (this cloud container has no Earth Engine credentials and
+cannot reach Drive); the CSVs then go in `external_data/gee/`. See
+`gee/README.md`.
+
+**Report:** the fixed "Initial Model Findings and Process" report is a Claude
+Doc on the owner's claude.ai account (study design, SHELDUS cleaning, variable
+specification table, one pipeline-check results table, references).
+
 **County-year pipeline (old design):** see `legacy/README.md` for the run order.
 `build_features_DU.py`, `impact_model.py`, the county-year `data_clean.py`, and
 the two post-event side explorations moved to `legacy/`. `hazard_features.py`,
