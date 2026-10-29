@@ -1,0 +1,214 @@
+--------------------------------------------------------------------------------
+Codebook for NHGIS data file 'nhgis0003_ds272_20245_region'
+--------------------------------------------------------------------------------
+ 
+Contents
+    - Data Summary
+    - Data Dictionary
+    - Citation and Use
+ 
+Additional documentation on NHGIS data sources is available at: 
+    https://www.nhgis.org/documentation/tabular-data 
+ 
+--------------------------------------------------------------------------------
+Data Summary
+--------------------------------------------------------------------------------
+ 
+Year:             2020-2024
+Geographic level: Region
+Dataset:          2024 American Community Survey: 5-Year Data [2020-2024, Block Groups & Larger Areas]
+   NHGIS code:    2020_2024_ACS5a
+   NHGIS ID:      ds272
+Breakdown(s):     Geographic Component:
+                     Total area (00)
+Data type(s):     (E) Estimates
+                  (M) Margins of error
+ 
+Tables:
+ 
+1. Value
+   Universe:    Owner-occupied housing units
+   Source code: B25075
+   NHGIS code:  AUWQ
+ 
+2. Median Value (Dollars)
+   Universe:    Owner-occupied housing units
+   Source code: B25077
+   NHGIS code:  AUWS
+ 
+--------------------------------------------------------------------------------
+Data Dictionary
+--------------------------------------------------------------------------------
+ 
+Context Fields 
+        GISJOIN:     GIS Join Match Code
+        YEAR:        Data File Year
+        STUSAB:      State Postal Abbreviation
+        REGION:      Region Name
+        REGIONA:     Region Code
+        DIVISIONA:   Division Code
+        STATEA:      State Code
+        COUNTYA:     County Code
+        COUSUBA:     County Subdivision Code
+        PLACEA:      Place/Remainder Code
+        TRACTA:      Census Tract Code
+        BLKGRPA:     Block Group Code
+        CONCITA:     Consolidated City Code
+        AIANHHA:     American Indian Area/Alaska Native Area/Hawaiian Home Land Code
+        RES_ONLYA:   American Indian Area/Alaska Native Area (Reservation or Statistical Entity Only) Code
+        TRUSTA:      American Indian Area (Off-Reservation Trust Land Only)/Hawaiian Home Land Code
+        AIHHTLI:     American Indian/Hawaiian Home Land Trust Land Indicator
+        AITSA:       Tribal Subdivision/Remainder Code
+        ANRCA:       Alaska Native Regional Corporation Code
+        CBSAA:       Metropolitan Statistical Area/Micropolitan Statistical Area Code
+        CSAA:        Combined Statistical Area Code
+        METDIVA:     Metropolitan Division Code
+        UAA:         Urban Area Code
+        CDCURRA:     Congressional District (2025-2027, 119th Congress) Code
+        SLDUA:       State Legislative District (Upper Chamber) Code
+        SLDLA:       State Legislative District (Lower Chamber) Code
+        ZCTA5A:      5-Digit ZIP Code Tabulation Area Code
+        SUBMCDA:     Subminor Civil Division Code
+        SDELMA:      School District (Elementary)/Remainder Code
+        SDSECA:      School District (Secondary)/Remainder Code
+        SDUNIA:      School District (Unified)/Remainder Code
+        PCI:         Principal City Indicator
+        PUMAA:       Public Use Microdata Area Code
+        GEO_ID:      Census Geographic Identifier
+        BTTRA:       Tribal Census Tract Code
+        BTBGA:       Tribal Block Group Code
+        TL_GEO_ID:   TIGER/Line Shapefile Geographic Identifier
+ 
+Data Type (E):
+    Estimates
+ 
+        NAME_E:      Area Name
+ 
+    Table 1:     Value
+    Universe:    Owner-occupied housing units
+    Source code: B25075
+    NHGIS code:  AUWQ
+        AUWQE001:    Total
+        AUWQE002:    Less than $10,000
+        AUWQE003:    $10,000 to $14,999
+        AUWQE004:    $15,000 to $19,999
+        AUWQE005:    $20,000 to $24,999
+        AUWQE006:    $25,000 to $29,999
+        AUWQE007:    $30,000 to $34,999
+        AUWQE008:    $35,000 to $39,999
+        AUWQE009:    $40,000 to $49,999
+        AUWQE010:    $50,000 to $59,999
+        AUWQE011:    $60,000 to $69,999
+        AUWQE012:    $70,000 to $79,999
+        AUWQE013:    $80,000 to $89,999
+        AUWQE014:    $90,000 to $99,999
+        AUWQE015:    $100,000 to $124,999
+        AUWQE016:    $125,000 to $149,999
+        AUWQE017:    $150,000 to $174,999
+        AUWQE018:    $175,000 to $199,999
+        AUWQE019:    $200,000 to $249,999
+        AUWQE020:    $250,000 to $299,999
+        AUWQE021:    $300,000 to $399,999
+        AUWQE022:    $400,000 to $499,999
+        AUWQE023:    $500,000 to $749,999
+        AUWQE024:    $750,000 to $999,999
+        AUWQE025:    $1,000,000 to $1,499,999
+        AUWQE026:    $1,500,000 to $1,999,999
+        AUWQE027:    $2,000,000 or more
+ 
+    Table 2:     Median Value (Dollars)
+    Universe:    Owner-occupied housing units
+    Source code: B25077
+    NHGIS code:  AUWS
+        AUWSE001:    Median value (dollars)
+ 
+Data Type (M):
+    Margins of error
+ 
+        NAME_M:      Area Name
+ 
+    Table 1:     Value
+    Universe:    Owner-occupied housing units
+    Source code: B25075
+    NHGIS code:  AUWQ
+        AUWQM001:    Total
+        AUWQM002:    Less than $10,000
+        AUWQM003:    $10,000 to $14,999
+        AUWQM004:    $15,000 to $19,999
+        AUWQM005:    $20,000 to $24,999
+        AUWQM006:    $25,000 to $29,999
+        AUWQM007:    $30,000 to $34,999
+        AUWQM008:    $35,000 to $39,999
+        AUWQM009:    $40,000 to $49,999
+        AUWQM010:    $50,000 to $59,999
+        AUWQM011:    $60,000 to $69,999
+        AUWQM012:    $70,000 to $79,999
+        AUWQM013:    $80,000 to $89,999
+        AUWQM014:    $90,000 to $99,999
+        AUWQM015:    $100,000 to $124,999
+        AUWQM016:    $125,000 to $149,999
+        AUWQM017:    $150,000 to $174,999
+        AUWQM018:    $175,000 to $199,999
+        AUWQM019:    $200,000 to $249,999
+        AUWQM020:    $250,000 to $299,999
+        AUWQM021:    $300,000 to $399,999
+        AUWQM022:    $400,000 to $499,999
+        AUWQM023:    $500,000 to $749,999
+        AUWQM024:    $750,000 to $999,999
+        AUWQM025:    $1,000,000 to $1,499,999
+        AUWQM026:    $1,500,000 to $1,999,999
+        AUWQM027:    $2,000,000 or more
+ 
+    Table 2:     Median Value (Dollars)
+    Universe:    Owner-occupied housing units
+    Source code: B25077
+    NHGIS code:  AUWS
+        AUWSM001:    Median value (dollars)
+ 
+--------------------------------------------------------------------------------
+Citation and Use of NHGIS Data
+--------------------------------------------------------------------------------
+ 
+All persons are granted a limited license to use this documentation and the
+accompanying data, subject to the following conditions:
+
+* REDISTRIBUTION: You will not redistribute the data without permission.
+
+  You may publish a subset of the data to meet journal requirements for accessing 
+  data related to a particular publication. Contact us for permission for any other 
+  redistribution; we will consider requests for free and commercial redistribution.
+
+* CITATION: You will cite NHGIS appropriately.
+
+    * Publications and research reports employing NHGIS data (either tabular or GIS) 
+      should include the following citation:
+
+        Jonathan Schroeder, David Van Riper, Steven Manson, Grace Cooper, Zachary Krause, Tracy Kugler, Tsu Zhu, and Steven Ruggles. 
+        IPUMS National Historical Geographic Information System: Version 21.0 
+        [dataset]. Minneapolis, MN: IPUMS. 2026. 
+        http://doi.org/10.18128/D050.V21.0
+
+    * For policy briefs, online resources, or articles in the popular press, we 
+      recommend that you cite the use of NHGIS data as follows:
+
+        IPUMS NHGIS, University of Minnesota, www.nhgis.org.
+
+These terms of use are a legally binding agreement. You can use the data only in 
+accordance with these terms, and any other use is a violation of the agreement. 
+Violations may result in revocation of the agreement and prohibition from using other 
+IPUMS data. If IPUMS or our partners are harmed from your violation, you are 
+responsible for all damages, including reasonable attorney's fees and expenses.
+        
+In addition, we request that users send us a copy of any publications, research
+reports, or educational material making use of the data or documentation.
+
+Send electronic material to: nhgis@umn.edu
+
+Printed matter should be sent to:
+
+    IPUMS NHGIS
+    Institute for Social Research and Data Innovation
+    University of Minnesota
+    50 Willey Hall
+    225 19th Ave S
+    Minneapolis, MN 55455
