@@ -4,9 +4,11 @@ Read this first when picking up the project in a new session. It summarizes the
 work through 2026-10-29 on branch `enci-dev`.
 
 **Status (2026-10-29):** the instructor reviewed the Initial Model Findings
-report, and the team agreed a new study design (below). The code still runs the
-old county-year design; the results further down come from it and are pipeline
-checks only. No code has been changed for the new design yet.
+report, and the team agreed a new study design (below). Step 1 of the rebuild is
+done: the monthly outcome (`data_clean.py`) and the county-month panel
+(`build_monthly_panel.py`). W, C and A for the new design are not built yet, so
+the results further down still come from the old county-year design and are
+pipeline checks only.
 
 ## Study design (agreed 2026-10-29)
 
@@ -85,22 +87,30 @@ scikit-learn is not installed, so models are written with numpy. pandas'
 Spearman correlation needs scipy (`pip install scipy` if `impact_model.py`
 fails with `No module named 'scipy'`).
 
-| # | Script | Writes |
-|---|---|---|
-| 1 | `data_preprocess.py` | `distributions/` (plots only) |
-| 2 | `data_clean.py` | `loss_cleaned.csv` |
-| 3 | `relationship_eda.py` | `relationships/` (plots only) |
-| 4 | `build_features_DU.py` | `model_data_DU.csv` (running county history) |
-| 5 | `hazard_features.py` | `model_data_hazard.csv`, `hazard_by_division.csv` |
-| 6 | `exposure_features.py` | `model_data_combined.csv`, `exposure_by_county_year.csv` |
-| 7 | `climatology_features.py` | `model_data_climatology.csv` |
-| 8 | `build_panel.py` | `model_data_panel.csv` (every county-year, zeros included) |
-| 9 | `impact_model.py` | printed results (flooded county-years only) |
-| 10 | `hurdle_model.py` | printed results (full panel) |
+**County-month pipeline (new design, being rebuilt step by step):**
 
-`crop_dmg_regression.py` and `property_dmg_regression.py` are side explorations.
-They use `Records` and duration, which are only known after the flood, so they are
-not forecasts.
+| # | Script | Writes | Status |
+|---|---|---|---|
+| 1 | `data_clean.py` | `loss_cleaned_monthly.csv` (SHELDUS county-months, flags, logs) | Done (step 1) |
+| 2 | `build_monthly_panel.py` | `model_data_monthly_panel.csv` (1,055 counties × 288 months = 303,840 rows, zeros included; git-ignored, 21 MB) | Done (step 1): outcome + census housing only |
+| 3 | `hazard_features.py` | county × month W | To rebuild (step 2) |
+| 4 | `climatology_features.py` | non-SHELDUS C | To rebuild (step 2) |
+| 5 | `exposure_features.py`, new `adaptation_features.py` | X and A | To rebuild (step 3) |
+| 6 | `hurdle_model.py` | results | To rebuild |
+
+Step-1 checks: the monthly file adds up exactly to the county-year file (0
+county-years differ); the panel holds $21.5B of 2000–2023 property loss, the same
+as SHELDUS; 9,845 county-months (3.2%) have damage, 3.5% in training years and
+2.5% in test years; 84 counties have no damage month in 2000–2016. At the
+monthly level 30% of nonzero property values are round (14% before 1996, 54%
+after), higher than the yearly 24% because summing months blurs round numbers.
+
+**County-year pipeline (old design):** see `legacy/README.md` for the run order.
+`build_features_DU.py`, `impact_model.py`, the county-year `data_clean.py`, and
+the two post-event side explorations moved to `legacy/`. `hazard_features.py`,
+`exposure_features.py`, `climatology_features.py`, `build_panel.py` and
+`hurdle_model.py` in the root are still the county-year versions until rebuilt;
+they read `model_data_DU.csv`, `loss_cleaned.csv` and the other existing CSVs.
 
 ## Data sources
 

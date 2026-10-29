@@ -86,8 +86,8 @@ feature_cols = ['Year', 'log_population',
 
 model_data = data[id_cols + feature_cols + [TARGET]].copy()
 model_data = model_data.rename(columns={'StateName': 'State'})
-model_data.to_csv('model_data.csv', index=False)
-print(f'saved model_data.csv: {len(model_data)} rows, {len(feature_cols)} numeric features + State')
+model_data.to_csv('model_data_DU.csv', index=False)
+print(f'saved model_data_DU.csv: {len(model_data)} rows, {len(feature_cols)} numeric features + State')
 
 
 # ---------------------------------------------------------------
