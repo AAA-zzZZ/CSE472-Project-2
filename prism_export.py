@@ -6,7 +6,9 @@ to a folder in your Google Drive.
 
   inspect   print band names and date range of each dataset (run this first)
   prism     county x day precipitation and Tmin, one CSV per year     (W)
-  era5      county x day soil moisture, snowpack, snowmelt, per year  (W, antecedent/snow)
+  era5      county x month: first-of-month soil moisture and snowpack,
+            plus monthly snowmelt total, one CSV per year              (W, antecedent/snow)
+  era5-daily  county x day version of era5 (about 30x more compute; not needed)
   nlcd      county x year developed, wetland, water share, impervious (X, A)
   terrain   county static slope, elevation, HAND share                (C / susceptibility)
 
@@ -15,12 +17,11 @@ Setup (once):
     earthengine authenticate
 
 Examples:
-    python gee_export.py inspect --project MY_PROJECT
-    python gee_export.py prism   --project MY_PROJECT --start 2019 --end 2019   # test year
-    python gee_export.py prism   --project MY_PROJECT                           # 1981-2023
-    python gee_export.py era5    --project MY_PROJECT                           # 1950-2023
-    python gee_export.py nlcd    --project MY_PROJECT                           # 1999-2023
-    python gee_export.py terrain --project MY_PROJECT
+    python prism_export.py inspect --project MY_PROJECT
+    python prism_export.py era5    --project MY_PROJECT --start 2019 --end 2019   # test year
+    python prism_export.py era5    --project MY_PROJECT                           # 1950-2023
+    python prism_export.py nlcd    --project MY_PROJECT --scale 90                # 1999-2023
+    python prism_export.py terrain --project MY_PROJECT
 
 Check progress:   earthengine task list
 """
@@ -46,6 +47,9 @@ ERA5_BANDS = [
     "snowmelt_sum",                                 # m of water per day
 ]
 ERA5_SHORT = ["sm1", "sm2", "sm3", "swe", "snowmelt"]
+ERA5_MONTHLY_ID = "ECMWF/ERA5_LAND/MONTHLY_AGGR"
+ERA5_STATE_BANDS = ERA5_BANDS[:4]                    # soil moisture 1-3 and snowpack
+ERA5_STATE_SHORT = ["sm1", "sm2", "sm3", "swe"]
 
 NLCD_LC_ID = "projects/sat-io/open-datasets/USGS/ANNUAL_NLCD/LANDCOVER"
 NLCD_IMP_ID = "projects/sat-io/open-datasets/USGS/ANNUAL_NLCD/FRACTIONAL_IMPERVIOUS_SURFACE"
@@ -111,7 +115,7 @@ def daily_export(collection_id, bands, short, year, counties, scale, prefix, fol
 
 def cmd_inspect(args, counties):
     print(f"counties: {counties.size().getInfo()} in states {','.join(args.states)}")
-    for cid in [PRISM_ID, ERA5_ID, NLCD_LC_ID, NLCD_IMP_ID, DEM_ID]:
+    for cid in [PRISM_ID, ERA5_ID, ERA5_MONTHLY_ID, NLCD_LC_ID, NLCD_IMP_ID, DEM_ID]:
         col = ee.ImageCollection(cid)
         try:
             first, last = col.first(), col.sort("system:time_start", False).first()
@@ -137,8 +141,32 @@ def cmd_prism(args, counties):
 
 
 def cmd_era5(args, counties):
+    """12 images per year: start-of-month state from the daily data, monthly snowmelt total."""
     scale = native_scale(ERA5_ID)
-    print(f"ERA5-Land {args.start}-{args.end}, scale {scale:.0f} m")
+    print(f"ERA5-Land monthly {args.start}-{args.end}, scale {scale:.0f} m")
+    daily = ee.ImageCollection(ERA5_ID)
+    out_bands = ERA5_STATE_SHORT + ["snowmelt_month"]
+    for y in range(args.start, args.end + 1):
+        start = ee.Date.fromYMD(y, 1, 1)
+        months = ee.ImageCollection(ERA5_MONTHLY_ID).filterDate(start, start.advance(1, "year"))
+
+        def per_month(m_img):
+            d = ee.Date(m_img.get("system:time_start"))
+            # First available day of the month (Jan 1950 starts on the 2nd).
+            day1 = ee.Image(daily.filterDate(d, d.advance(2, "day")).first())
+            img = (day1.select(ERA5_STATE_BANDS, ERA5_STATE_SHORT)
+                   .addBands(m_img.select(["snowmelt_sum"], ["snowmelt_month"])))
+            red = img.reduceRegions(collection=counties, reducer=ee.Reducer.mean(),
+                                    scale=scale, tileScale=4)
+            return strip(red, ["GEOID"] + out_bands, {"date": d.format("YYYY-MM-dd")})
+
+        table = months.map(per_month).flatten()
+        start_export(table, f"era5_county_monthly_{y}", args.folder, ["GEOID", "date"] + out_bands)
+
+
+def cmd_era5_daily(args, counties):
+    scale = native_scale(ERA5_ID)
+    print(f"ERA5-Land daily {args.start}-{args.end}, scale {scale:.0f} m")
     for y in range(args.start, args.end + 1):
         daily_export(ERA5_ID, ERA5_BANDS, ERA5_SHORT, y, counties, scale,
                      "era5_county_daily", args.folder)
@@ -192,13 +220,16 @@ def cmd_terrain(args, counties):
 
 # ---------------------------------------------------------------- CLI
 
-DEFAULT_YEARS = {"prism": (1981, 2023), "era5": (1950, 2023), "nlcd": (1999, 2023)}
-DEFAULT_SCALE = {"nlcd": 30, "terrain": 90}
+DEFAULT_YEARS = {"prism": (1981, 2023), "era5": (1950, 2023), "era5-daily": (1950, 2023),
+                 "nlcd": (1999, 2023)}
+DEFAULT_SCALE = {"nlcd": 90, "terrain": 90}
+COMMANDS = {"inspect": cmd_inspect, "prism": cmd_prism, "era5": cmd_era5,
+            "era5-daily": cmd_era5_daily, "nlcd": cmd_nlcd, "terrain": cmd_terrain}
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("command", choices=["inspect", "prism", "era5", "nlcd", "terrain"])
+    ap.add_argument("command", choices=list(COMMANDS))
     ap.add_argument("--project", required=True, help="Google Cloud project registered for Earth Engine")
     ap.add_argument("--start", type=int, help="first year (default depends on dataset)")
     ap.add_argument("--end", type=int, help="last year, inclusive")
@@ -217,8 +248,7 @@ def main():
 
     ee.Initialize(project=args.project)
     counties = get_counties(args.states)
-    {"inspect": cmd_inspect, "prism": cmd_prism, "era5": cmd_era5,
-     "nlcd": cmd_nlcd, "terrain": cmd_terrain}[args.command](args, counties)
+    COMMANDS[args.command](args, counties)
 
 
 if __name__ == "__main__":
