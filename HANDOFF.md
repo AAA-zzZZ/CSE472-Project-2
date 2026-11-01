@@ -6,9 +6,11 @@ work through 2026-11-01 on branch `enci-dev` (pull request #1 into `main`).
 **Status (2026-11-01):** the county-month data pipeline is built, merged and
 reproducible: rebuilding every output from the raw data gives byte-identical
 files. The modelling table `model_panel.csv` has the outcome, hazard, exposure,
-terrain and rain climate for all 1,055 counties × 288 months, and the first
-hurdle model on it is done (results below). Still missing: the census,
-flood-insurance, buyout and soil tables, and the remaining models.
+terrain, rain climate and census/ACS variables for all 1,055 counties × 288
+months. The first hurdle model and a model comparison are done (results below;
+LightGBM hurdle is the chosen main model). Still missing: the flood-insurance,
+buyout and soil tables, models that use the census columns, and the remaining
+models.
 
 ## The task
 
@@ -75,9 +77,12 @@ Run from the repository root. Needs `pandas numpy scipy`; maps also need
 | 7 | `merge_panel.py` | steps 2, 5, 6, `data/clean/*` | `model_panel.csv`: 303,840 rows × 53 columns, no missing values | Done |
 | 8 | `maps.py` | step 7, `data/counties_midwest.geojson` | `maps/*.png` (7 maps) | Done |
 | 9 | `hurdle_model.py` | step 7 | printed tables, `results/hurdle_scores.csv` | Done (first version) |
+| 10 | `model_comparison.py` | step 7 | printed tables, `results/model_comparison.csv` | Done; needs `lightgbm scikit-learn` |
 
-`housing_county_year.csv` (census housing units and urban share) will be
-replaced by the census/ACS table from the data guide.
+`housing_county_year.csv` (step 2) still supplies `log_housing_units` and
+`urban_share` (census years only, most recent census at or before the year).
+`census_county_year.csv` (step 6b) adds yearly census/ACS values, including
+`housing_units`; the models still use the step-2 columns until they are refit.
 
 Rebuild the git-ignored outputs (about 2 minutes):
 
@@ -106,6 +111,8 @@ Git-ignored: `model_data_monthly_panel.csv` (21 MB), `out/w_county_month.csv`
 | X, land cover (year − 1) | `developed_share`, `impervious_mean`, `water_share` | Annual NLCD |
 | X, susceptibility (static) | `elev_mean`, `slope_mean`, `flat_share`, `hand_mean`, `hand_lt5_share`, `land_km2`, `water_km2` | USGS 3DEP; MERIT Hydro |
 | A (year − 1) | `wetland_share`, `wetland_change_since_1999` | Annual NLCD |
+| X, census (year − 1) | `housing_units`, `population`, `median_value` (2024 $) | NHGIS time series AV0, A41; NH085A / B25077 |
+| A, census (year − 1) | `median_income` (2024 $), `poverty_rate`, `mobile_home_share`, `built_pre1980_share` | NHGIS time series B79, BV3; NH030A / B25024; NH034A / B25034 |
 
 Rainfall and soil thresholds are fitted on 1951–1999 (soil 1950–1999) only.
 Never inputs: SHELDUS `Records`, `Duration_Days`, `Fatalities`, any other damage
@@ -197,6 +204,30 @@ as the second method, then a hybrid with LightGBM predictions as covariates;
 county + year-month fixed effects with W × C, then DML / causal forest for τ;
 hurdle-structured conformal intervals. Open benchmark issue: the GLM uses 17
 inputs and the trees 39 + state + month, so refit the GLM on matched inputs.
+
+## Census and ACS data (`census_features.py`, 2026-11-01)
+
+Input: the NHGIS extract "flood census 2000-2023" in `nhgis0001_csv/nhgis0001_csv/`
+(time series AV0 population, A41 housing units, B79 median household income,
+BV3 poverty by age; source tables for units in structure, year built and median
+value from the 2000 Census SF3a and every ACS 5-year release 2005–2009 to
+2019–2023). Output: `data/clean/census_county_year.csv`, 1,055 counties ×
+1999–2023, no missing values.
+
+- Each ACS release is placed in its last year (2006–2010 → 2010); values are
+  interpolated linearly between survey years; 1999 copies 2000.
+- Dollars in 2024 terms with the CPI-U (BLS CUUR0000SA0, hard-coded annual
+  averages): 2000 Census income is in 1999 dollars, 2000 home value in 2000
+  dollars, each ACS release in its last year's dollars.
+- Source-table columns are found from each codebook (variable codes change
+  between datasets, e.g. GAF in 2000 vs ASUG in 2019–2023).
+- Checks: housing counts match the step-2 NHGIS table exactly in 2000 (within a
+  few percent in 2010 and 2020). Median county income in 2024 $: $66,900 (2000),
+  $63,300 (2010), $68,200 (2023); poverty peaks around 2014 (13.4%); homes
+  built before 1980 fall from 77% to 64%.
+- Caveat: an ACS release ending in year t is published in December of t + 1,
+  so the one-year lag in `merge_panel.py` uses it a few months early; a two-year
+  lag would avoid this.
 
 ## Still missing
 
