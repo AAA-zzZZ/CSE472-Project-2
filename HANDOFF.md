@@ -87,42 +87,51 @@ scikit-learn is not installed, so models are written with numpy. pandas'
 Spearman correlation needs scipy (`pip install scipy` if `impact_model.py`
 fails with `No module named 'scipy'`).
 
-**County-month pipeline (new design, being rebuilt step by step):**
+**County-month pipeline (new design).** Outcome scripts came from `enci-dev`,
+input scripts from `yan-dev2` (merged 2026-11-01). Run from the repository root.
 
 | # | Script | Writes | Status |
 |---|---|---|---|
-| 1 | `data_clean.py` | `loss_cleaned_monthly.csv` (SHELDUS county-months, flags, logs) | Done (step 1) |
-| 2 | `build_monthly_panel.py` | `model_data_monthly_panel.csv` (1,055 counties × 288 months = 303,840 rows, zeros included; git-ignored, 21 MB) | Done (step 1): outcome + census housing only |
-| 3 | `hazard_features.py` | county × month W | To rebuild (step 2) |
-| 4 | `climatology_features.py` | non-SHELDUS C | To rebuild (step 2) |
-| 5 | `exposure_features.py`, new `adaptation_features.py` | X and A | To rebuild (step 3) |
-| 6 | `hurdle_model.py` | results | To rebuild |
+| 1 | `data_clean.py` | `loss_cleaned_monthly.csv` (SHELDUS county-months, flags, logs) | Done |
+| 2 | `build_monthly_panel.py` | `model_data_monthly_panel.csv`: Y for 1,055 counties × 288 months = 303,840 rows, zeros included (git-ignored, 21 MB) | Done |
+| 3 | `prism_export.py` | Earth Engine exports to Google Drive: ERA5-Land, Annual NLCD, terrain | Done; CSVs in `data/gee_era5/`, `data/gee_nlcd/`, `data/gee_terrain/` |
+| 4 | `prep_nclimgrid.py` | `data/nclimgrid_midwest/` (NOAA nClimGrid-Daily county rain and Tmin, 1951–2023) | Done |
+| 5 | `w_indices.py` | `out/w_county_month.csv` (W rainfall indices; git-ignored, 28 MB), `out/w_county_thresholds.csv` (C: 1951–1999 percentiles and return levels) | Done |
+| 6 | `build_panel.py` | `panel_county_month.csv`: inputs only, 303,840 rows × 35 columns (git-ignored, 70 MB) | Done |
+| 7 | `merge_panel.py` (new) | final table: inputs + Y + C, later the `data/clean/` tables | To do |
+| 8 | `hurdle_model.py` | results | To rebuild for county × month |
 
-Step-1 checks: the monthly file adds up exactly to the county-year file (0
-county-years differ); the panel holds $21.5B of 2000–2023 property loss, the same
-as SHELDUS; 9,845 county-months (3.2%) have damage, 3.5% in training years and
-2.5% in test years; 84 counties have no damage month in 2000–2016. At the
-monthly level 30% of nonzero property values are round (14% before 1996, 54%
-after), higher than the yearly 24% because summing months blurs round numbers.
+Rebuild the git-ignored files:
 
-**Earth Engine inputs:** `gee/export_county_data.py` exports county means of
-PRISM monthly (1895–2023) and daily (1981–2023) precipitation, ERA5-Land soil
-moisture and snow (1950–2023), NLCD land cover and terrain (height above
-nearest drainage, slope) to Google Drive. It must run on a team member's own
-Earth Engine account (this cloud container has no Earth Engine credentials and
-cannot reach Drive); the CSVs then go in `external_data/gee/`. See
-`gee/README.md`.
+```
+python data_clean.py && python build_monthly_panel.py
+python w_indices.py --input data/nclimgrid_midwest --out-dir out/
+python build_panel.py --era5 data/gee_era5 --nlcd data/gee_nlcd --terrain data/gee_terrain --w out/w_county_month.csv --out panel_county_month.csv
+```
+
+Checks: the monthly SHELDUS file adds up exactly to the county-year file; the
+outcome panel holds $21.5B of 2000–2023 property loss, the same as SHELDUS;
+9,845 county-months (3.2%) have damage, 3.5% in training years and 2.5% in test
+years; 84 counties have no damage month in 2000–2016. The input panel and the
+outcome panel join one-to-one on county, year and month (all 303,840 rows). At
+the monthly level 30% of nonzero property values are round (14% before 1996,
+54% after).
+
+Still to collect (teammate's guide, `data/clean/`): Census/ACS county table,
+NFIP policies in force, HMA buyouts and elevations, gNATSGO soil C/D share,
+optional CRS class. Every yearly table is saved for its own year; the merge
+applies the one-year lag.
 
 **Report:** the fixed "Initial Model Findings and Process" report is a Claude
 Doc on the owner's claude.ai account (study design, SHELDUS cleaning, variable
 specification table, one pipeline-check results table, references).
 
 **County-year pipeline (old design):** see `legacy/README.md` for the run order.
-`build_features_DU.py`, `impact_model.py`, the county-year `data_clean.py`, and
-the two post-event side explorations moved to `legacy/`. `hazard_features.py`,
-`exposure_features.py`, `climatology_features.py`, `build_panel.py` and
-`hurdle_model.py` in the root are still the county-year versions until rebuilt;
-they read `model_data_DU.csv`, `loss_cleaned.csv` and the other existing CSVs.
+`build_features_DU.py`, `impact_model.py`, `build_panel.py`, the county-year
+`data_clean.py` and the two post-event side explorations are in `legacy/`.
+`hazard_features.py`, `exposure_features.py`, `climatology_features.py` and
+`hurdle_model.py` in the root are still the county-year versions; the first
+three are superseded by the county-month input scripts above.
 
 ## Data sources
 
