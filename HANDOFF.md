@@ -71,7 +71,8 @@ Run from the repository root. Needs `pandas numpy scipy`; maps also need
 | 4 | `prep_nclimgrid.py` | NOAA nClimGrid-Daily county files (8 GB, not in repo) | `data/nclimgrid_midwest/` (daily rain and Tmin, 1951–2023) | Done |
 | 5 | `w_indices.py` | step 4 | `out/w_county_month.csv` (W), `out/w_county_thresholds.csv` (C) | Done |
 | 6 | `build_panel.py` | steps 3 and 5 | `panel_county_month.csv`: inputs, 303,840 rows × 35 columns | Done |
-| 7 | `merge_panel.py` | steps 2, 5, 6, `data/clean/*` | `model_panel.csv`: 303,840 rows × 46 columns, no missing values | Done |
+| 6b | `census_features.py` | NHGIS extract `nhgis0001_csv/nhgis0001_csv/` | `data/clean/census_county_year.csv` | Done |
+| 7 | `merge_panel.py` | steps 2, 5, 6, `data/clean/*` | `model_panel.csv`: 303,840 rows × 53 columns, no missing values | Done |
 | 8 | `maps.py` | step 7, `data/counties_midwest.geojson` | `maps/*.png` (7 maps) | Done |
 | 9 | `hurdle_model.py` | step 7 | printed tables, `results/hurdle_scores.csv` | Done (first version) |
 
@@ -84,6 +85,7 @@ Rebuild the git-ignored outputs (about 2 minutes):
 python data_clean.py && python housing_features.py && python build_monthly_panel.py
 python w_indices.py --input data/nclimgrid_midwest --out-dir out/
 python build_panel.py --era5 data/gee_era5 --nlcd data/gee_nlcd --terrain data/gee_terrain --w out/w_county_month.csv --out panel_county_month.csv
+python census_features.py
 python merge_panel.py
 python maps.py
 ```
@@ -179,7 +181,7 @@ with a one-year lag):
 
 | Table | Block | Status |
 |---|---|---|
-| `census_county_year.csv`: housing units, population, median value, income, poverty, mobile-home share, built before 1980 (Census 2000 + ACS 5-year) | X, A | To do; adjust dollars to 2024 with CPI, copy 2000 values to 1999 |
+| `census_county_year.csv`: housing units, population, median value, income, poverty, mobile-home share, built before 1980 (Census 2000 + ACS 5-year) | X, A | **Done 2026-11-01** (`census_features.py`, NHGIS extract in `nhgis0001_csv/nhgis0001_csv/`): 1,055 counties × 1999–2023, no missing values, dollars in 2024 CPI-U terms; joined by `merge_panel.py` (`model_panel.csv` now 53 columns). Not yet used by the models |
 | `nfip_policies_county_year.csv`: policies in force (OpenFEMA) | A | To do; check coverage before 2009 |
 | `hma_county_year.csv`: cumulative buyouts and elevations (OpenFEMA HMA) | A | To do |
 | `soils_county.csv`: share of slow-draining soils (gNATSGO) | X (susceptibility) | To do |
