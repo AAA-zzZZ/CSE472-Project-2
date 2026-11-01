@@ -6,9 +6,9 @@ work through 2026-11-01 on branch `enci-dev` (pull request #1 into `main`).
 **Status (2026-11-01):** the county-month data pipeline is built, merged and
 reproducible: rebuilding every output from the raw data gives byte-identical
 files. The modelling table `model_panel.csv` has the outcome, hazard, exposure,
-terrain and rain climate for all 1,055 counties × 288 months. Still missing:
-the census, flood-insurance, buyout and soil tables, and every model on the new
-design (`hurdle_model.py` is still the county-year version).
+terrain and rain climate for all 1,055 counties × 288 months, and the first
+hurdle model on it is done (results below). Still missing: the census,
+flood-insurance, buyout and soil tables, and the remaining models.
 
 ## The task
 
@@ -72,7 +72,7 @@ Run from the repository root. Needs `pandas numpy scipy`; maps also need
 | 6 | `build_panel.py` | steps 3 and 5 | `panel_county_month.csv`: inputs, 303,840 rows × 35 columns | Done |
 | 7 | `merge_panel.py` | steps 2, 5, 6, `data/clean/*` | `model_panel.csv`: 303,840 rows × 46 columns, no missing values | Done |
 | 8 | `maps.py` | step 7, `data/counties_midwest.geojson` | `maps/*.png` (7 maps) | Done |
-| 9 | `hurdle_model.py` | step 7 | results | To rewrite (root file is still the county-year version) |
+| 9 | `hurdle_model.py` | step 7 | printed tables, `results/hurdle_scores.csv` | Done (first version); the county-year version is `legacy/hurdle_model.py` |
 
 `exposure_by_county_year.csv` (census housing units and urban share) is made by
 the county-year `exposure_features.py`; it will be replaced by the census table
@@ -130,6 +130,48 @@ counts; later HMA grants; FEMA National Risk Index; NCEI Storm Events.
 - At the monthly level 30% of nonzero property values are round figures (14%
   before 1996, 54% after); flagged in `loss_cleaned_monthly.csv`.
 
+## Hurdle model results (first county-month version, 2026-11-01)
+
+`hurdle_model.py`: part 1 logistic for any damage, part 2 linear regression on
+log10 damage, both with calendar-month and state indicators and a ridge penalty
+(chosen on 2000–2012 → 2013–2016: part 1 = 100, part 2 = 0.1; it barely
+matters). Trained on 2000–2016 (215,220 county-months, 3.54% damage), scored
+once on 2017–2023 (88,620, 2.52% damage). One representative per overlapping
+group: X = housing units, urban share, impervious %, water share, land within
+5 m of drainage, log land area; A = wetland share; C = 10-year 5-day rain level.
+
+| Model (test 2017–2023) | ROC-AUC | PR-AUC | AUC within month | Loss in top 5%, without largest month | Rank corr, county-year |
+|---|---|---|---|---|---|
+| Baseline: county × calendar-month rate | 0.728 | 0.066 | 0.709 | 0.266 | 0.113 |
+| Setting: X, C, wetlands, state, month | 0.690 | 0.053 | 0.651 | 0.296 | 0.126 |
+| + known in advance (prior rain, soil, snow) | 0.724 | 0.064 | 0.666 | 0.316 | 0.158 |
+| + monthly rain | 0.851 | 0.168 | 0.825 | 0.562 | 0.248 |
+| + 5-day extreme | 0.860 | 0.194 | 0.823 | 0.715 | 0.258 |
+| + snow and frost (full) | 0.859 | 0.193 | 0.824 | 0.742 | 0.259 |
+| Full, no state effect | 0.856 | 0.174 | 0.821 | 0.458 | 0.262 |
+| Full, no rain climate (C) | 0.858 | 0.191 | 0.822 | 0.715 | 0.259 |
+
+- **Same-month rain is what works:** +0.127 AUC (95% CI 0.117–0.135 from a
+  county bootstrap). The 5-day extreme adds +0.009 (0.007–0.011). Snow and
+  frost add nothing to AUC but catch March 2019: 71% of that month's loss is in
+  the full model's top 5% of counties vs 11% without them. March 2019 holds 21%
+  of all test-year loss, so dollar-weighted scores swing on it; the table shows
+  the version without the largest month.
+- **Known in advance ≈ the baseline.** Information available before the month
+  (+0.035 AUC over the setting) only matches each county's own past damage rate
+  (difference −0.004, CI −0.013 to +0.006). Real forecasting skill depends on
+  forecasting the month's rain.
+- **State effects matter** (+0.004 AUC, CI 0.000–0.007; much more for dollars:
+  0.742 vs 0.458 of loss caught without the largest month).
+- **Rain climate (C) adds a little** (+0.002 AUC, CI 0.000–0.003) and the
+  monthly-rain coefficient rises from 1.35 to 1.49 when C is dropped: a sign of
+  the W ← C confounding the causal framing predicts.
+- **Calibration is off for the test years:** mean predicted probability is
+  1.37× the observed rate, 2.3× in 2021 and 2.5× in Iowa, because damage was
+  reported less often after 2016 (3.5% → 2.5%) and Iowa's rate fell most.
+- Part 2 (amount) barely improves: MAE 0.862 log10 vs 0.905 for the baseline.
+- Simulation check: 40 of 40 coefficients recovered within 2 standard errors.
+
 ## Still missing
 
 **Data** (teammate's guide, saved to `data/clean/` and joined by `merge_panel.py`
@@ -149,15 +191,12 @@ locally.
 
 **Models:**
 
-1. Rewrite `hurdle_model.py` for county × month: county × calendar-month
-   baseline; two hazard versions (perfect forecast vs known in advance); one
-   rainfall measure per step (monthly total → + `rx5_rl_ratio` → + soil and
-   snow); state effects and results by state; settings chosen on 2000–2012 →
-   2013–2016, test 2017–2023 once; PR-AUC, ROC-AUC, Brier skill, calibration,
-   rank correlation, top-10% hit and share of loss captured, by test year.
-2. Confounding simulation (C raises W and A, A lowers Y) and the W × C check.
+1. ~~Rewrite `hurdle_model.py` for county × month~~ (done 2026-11-01; see below).
+2. Confounding simulation (C raises W and A, A lowers Y).
 3. Bayesian spatial model: BYM2 hurdle in R-INLA (Moraga ch. 9).
 4. Forecast-like W and 80% prediction ranges with coverage.
+5. Calibration for the test years (the model expects 1.4× too many damage
+   months, up to 2–3× in 2021–2023 and in Iowa).
 
 **Decisions open:** instructor approval of rain-climate C, NFIP/CRS as A and
 R-INLA; whether to add `scikit-learn`/`lightgbm` for a gradient-boosted hurdle.

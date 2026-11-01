@@ -16,9 +16,9 @@ Run from the repository root (the scripts read and write files there):
 | 5 | `python climatology_features.py` | `model_data_climatology.csv` |
 | 6 | `python legacy/build_panel.py` | `model_data_panel.csv` |
 | 7 | `python legacy/impact_model.py` | printed results (flooded county-years) |
-| 8 | `python hurdle_model.py` | printed results (county-year panel) |
+| 8 | `python legacy/hurdle_model.py` | printed results (county-year panel) |
 
-Steps 3–5 and 8 still live in the root folder until they are rebuilt for the
+Steps 3–5 still live in the root folder until they are rebuilt for the
 county-month design; their county-year versions will move here at that point.
 `build_panel.py` in the root is now the county-month input panel (see
 `HANDOFF.md`), so the county-year version lives here as `legacy/build_panel.py`.
