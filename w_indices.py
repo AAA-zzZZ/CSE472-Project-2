@@ -1,17 +1,19 @@
 """
-Step 2b: Compute county x month hazard (W) indices from the county-daily PRISM CSVs.
+Step 2b: Compute county x month hazard (W) indices from county-daily rainfall and Tmin.
 
-Input : folder of prism_county_daily_<YEAR>.csv (GEOID, date, ppt, tmin), 1981-2023
-Output: w_county_month.csv     one row per county x month, model years only (default 2000-2023)
+Input : folder of yearly county-daily files (.csv or .csv.gz) with columns GEOID, date, ppt, tmin.
+        Made by prep_nclimgrid.py from NOAA nClimGrid-Daily (1951-2023).
+        The older PRISM exports (prism_county_daily_YYYY.csv) also work; use --base-start 1981.
+Output: w_county_month.csv      one row per county x month, model years only (default 2000-2023)
         w_county_thresholds.csv per-county baseline thresholds (p95, p99, GEV return levels)
 
 Usage:
     pip install pandas numpy scipy
-    python w_indices.py --input prism_csvs/ --out-dir out/
+    python w_indices.py --input data/nclimgrid_midwest --out-dir out/
 
 Leakage rules followed here:
   * All thresholds (wet-day p95/p99, GEV return levels, SPI distributions) are fitted on the
-    baseline period only (default 1981-1999), never on model years.
+    baseline period only (default 1951-1999), never on model years.
   * "Prior-month" features (spi1_prev, spi2_prev, frost_days_prev) use only months before the target.
   * Same-month features (p_month, rx*, n_gt_p95, ...) describe the realized hazard in the target month,
     which is how the W block is defined in the plan.
@@ -27,16 +29,16 @@ Variables produced (county x month):
   frost_days_prev  frost days in the previous month (frozen-ground signal)
   spi1_prev        SPI of the previous month's precipitation (gamma, baseline-fitted)
   spi2_prev        SPI of the 2-month total ending in the previous month
+  n_days           days with data in the month (check for gaps)
 
-Note: the method plan suggests a 1895-1999 SPI baseline from PRISM monthly (ANm). This script
-uses the daily record (1981-1999) so everything comes from one export; swap in ANm later
-if you want the longer baseline. 19 years is also short for GEV fits; the 25-year level in
-particular is an extrapolation and should be treated as rough.
+Method notes: SPI uses the standard Thom (1958) gamma estimator with a zero-probability term;
+return levels come from a GEV fit to baseline annual Rx5day maxima (Gumbel if the fit is unstable).
 """
 
 import argparse
 import glob
 import os
+import time
 import warnings
 
 import numpy as np
@@ -46,39 +48,41 @@ from scipy import stats
 WET_DAY_MM = 1.0
 
 
-def load_daily(folder):
-    files = sorted(glob.glob(os.path.join(folder, "*.csv")))
+def log(msg, t0=[time.time()]):
+    print(f"[{time.time() - t0[0]:6.0f}s] {msg}", flush=True)
+
+
+def load_wide(folder):
+    """Read all yearly files and return two day x county tables (ppt, tmin) on a complete daily index."""
+    files = sorted(glob.glob(os.path.join(folder, "*.csv")) + glob.glob(os.path.join(folder, "*.csv.gz")))
     if not files:
-        raise SystemExit(f"no CSV files in {folder}")
-    df = pd.concat((pd.read_csv(f, dtype={"GEOID": str}) for f in files), ignore_index=True)
-    df["GEOID"] = df["GEOID"].str.zfill(5)
-    df["date"] = pd.to_datetime(df["date"])
-    df = df.drop_duplicates(["GEOID", "date"]).sort_values(["GEOID", "date"]).reset_index(drop=True)
-    return df
-
-
-def check_completeness(df):
-    """Warn about missing days, which would break the rolling windows."""
-    span = df.groupby("GEOID")["date"].agg(["min", "max", "count"])
-    expected = (span["max"] - span["min"]).dt.days + 1
-    gaps = span[span["count"] < expected]
-    if len(gaps):
-        warnings.warn(f"{len(gaps)} counties have missing days; rolling sums are reindexed to fill them with NaN")
-    na = df[["ppt", "tmin"]].isna().mean()
-    if na.max() > 0:
-        warnings.warn(f"share of missing values: {na.to_dict()}")
-
-
-def add_rolling(df):
-    """3- and 5-day trailing precipitation sums per county on a complete daily index."""
-    out = []
-    for geoid, g in df.groupby("GEOID", sort=False):
-        g = g.set_index("date").asfreq("D")
-        g["GEOID"] = geoid
-        g["ppt3"] = g["ppt"].rolling(3, min_periods=3).sum()
-        g["ppt5"] = g["ppt"].rolling(5, min_periods=5).sum()
-        out.append(g.reset_index())
-    return pd.concat(out, ignore_index=True)
+        raise SystemExit(f"no .csv or .csv.gz files in {folder}")
+    # Pivot each file to day x county as it is read, so the long table never exists in full.
+    ppt_parts, tmin_parts = [], []
+    n_rows = 0
+    for f in files:
+        df = pd.read_csv(f, dtype={"GEOID": str, "ppt": "float32", "tmin": "float32"},
+                         usecols=["GEOID", "date", "ppt", "tmin"])
+        df["GEOID"] = df["GEOID"].str.zfill(5)
+        df["date"] = pd.to_datetime(df["date"])
+        df = df.drop_duplicates(["GEOID", "date"])
+        n_rows += len(df)
+        ppt_parts.append(df.pivot(index="date", columns="GEOID", values="ppt"))
+        tmin_parts.append(df.pivot(index="date", columns="GEOID", values="tmin"))
+        del df
+    ppt = pd.concat(ppt_parts).astype("float32")
+    tmin = pd.concat(tmin_parts).astype("float32")
+    del ppt_parts, tmin_parts
+    ppt = ppt[~ppt.index.duplicated()].sort_index()
+    tmin = tmin[~tmin.index.duplicated()].sort_index()
+    days = pd.date_range(ppt.index.min(), ppt.index.max(), freq="D")
+    ppt, tmin = ppt.reindex(days), tmin.reindex(days)
+    log(f"read {len(files)} files, {n_rows:,} rows, {ppt.shape[1]} counties, "
+        f"{days[0]:%Y-%m-%d} to {days[-1]:%Y-%m-%d}")
+    gap = ppt.isna().mean().mean()
+    if gap > 0:
+        warnings.warn(f"{gap:.3%} of county-days are missing (gaps are left as NaN)")
+    return ppt.astype("float32"), tmin.astype("float32")
 
 
 def fit_gev_levels(annual_max, periods=(2, 10, 25)):
@@ -86,121 +90,118 @@ def fit_gev_levels(annual_max, periods=(2, 10, 25)):
     x = np.asarray(annual_max, dtype=float)
     x = x[np.isfinite(x)]
     if len(x) < 10:
-        return {f"rl{T}": np.nan for T in periods}
+        return [np.nan] * len(periods)
     probs = [1 - 1 / T for T in periods]
     try:
         c, loc, scale = stats.genextreme.fit(x)
-        if not (-0.5 < c < 0.5) or scale <= 0:   # implausible shape for 19 points
+        if not (-0.5 < c < 0.5) or scale <= 0:
             raise ValueError
-        levels = stats.genextreme.ppf(probs, c, loc, scale)
+        return list(stats.genextreme.ppf(probs, c, loc, scale))
     except Exception:
         loc, scale = stats.gumbel_r.fit(x)
-        levels = stats.gumbel_r.ppf(probs, loc, scale)
-    return {f"rl{T}": float(v) for T, v in zip(periods, levels)}
+        return list(stats.gumbel_r.ppf(probs, loc, scale))
 
 
-def baseline_thresholds(daily, monthly, base_start, base_end):
-    """Per-county thresholds fitted on baseline years only."""
-    b = daily[daily["date"].dt.year.between(base_start, base_end)]
-    wet = b[b["ppt"] >= WET_DAY_MM]
-    pct = wet.groupby("GEOID")["ppt"].quantile([0.95, 0.99]).unstack()
-    pct.columns = ["p95", "p99"]
-
-    bm = monthly[monthly["year"].between(base_start, base_end)]
-    ann_rx5 = bm.groupby(["GEOID", "year"])["rx5"].max()
-    rl = ann_rx5.groupby("GEOID").apply(lambda s: pd.Series(fit_gev_levels(s.values))).unstack()
-    return pct.join(rl, how="outer")
-
-
-def spi_gamma(values, base_mask):
-    """SPI for one county x calendar-month series, gamma fitted on baseline values (zeros handled)."""
-    v = np.asarray(values, dtype=float)
-    base = v[base_mask & np.isfinite(v)]
-    out = np.full_like(v, np.nan)
-    if len(base) < 10:
-        return out
-    q = np.mean(base <= 0)                        # probability of a zero total
-    pos = base[base > 0]
-    if len(pos) < 5:
-        return out
-    a, _, sc = stats.gamma.fit(pos, floc=0)
-    ok = np.isfinite(v)
-    cdf = q + (1 - q) * stats.gamma.cdf(np.clip(v[ok], 0, None), a, loc=0, scale=sc)
-    out[ok] = stats.norm.ppf(np.clip(cdf, 0.001, 0.999))
+def spi_wide(p, base_mask):
+    """SPI for a month x county table, fitted separately for each calendar month on baseline rows."""
+    out = pd.DataFrame(np.nan, index=p.index, columns=p.columns, dtype="float64")
+    for m in range(1, 13):
+        rows = p.index.month == m
+        sub = p[rows].to_numpy(dtype="float64")                 # years x counties
+        base = sub[base_mask[rows]]
+        valid = np.isfinite(base)
+        n = valid.sum(0)
+        q = np.where(n > 0, ((base <= 0) & valid).sum(0) / np.maximum(n, 1), np.nan)
+        pos = np.where(valid & (base > 0), base, np.nan)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            mean = np.nanmean(pos, 0)
+            A = np.log(mean) - np.nanmean(np.log(pos), 0)
+            alpha = (1 + np.sqrt(1 + 4 * A / 3)) / (4 * A)
+            beta = mean / alpha
+            ok = (np.isfinite(pos).sum(0) >= 5) & (n >= 10) & np.isfinite(alpha) & (alpha > 0)
+            cdf = q + (1 - q) * stats.gamma.cdf(np.clip(sub, 0, None), alpha, scale=beta)
+            z = stats.norm.ppf(np.clip(cdf, 0.001, 0.999))
+        z[:, ~ok] = np.nan
+        z[~np.isfinite(sub)] = np.nan
+        out.loc[rows] = z
     return out
-
-
-def add_spi(monthly, base_start, base_end):
-    m = monthly.sort_values(["GEOID", "year", "month"]).copy()
-    m["p2"] = m.groupby("GEOID")["p_month"].transform(lambda s: s.rolling(2, min_periods=2).sum())
-    base = m["year"].between(base_start, base_end).to_numpy()
-    for src, dst in [("p_month", "spi1"), ("p2", "spi2")]:
-        m[dst] = np.nan
-        for _, idx in m.groupby(["GEOID", "month"]).groups.items():
-            idx = np.asarray(idx)
-            m.loc[idx, dst] = spi_gamma(m.loc[idx, src].to_numpy(), base[m.index.get_indexer(idx)])
-    # Shift to "previous month" so only information before the target month is used.
-    g = m.groupby("GEOID")
-    m["spi1_prev"] = g["spi1"].shift(1)
-    m["spi2_prev"] = g["spi2"].shift(1)
-    return m.drop(columns=["p2", "spi1", "spi2"])
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--input", required=True, help="folder with prism_county_daily_*.csv")
+    ap.add_argument("--input", required=True, help="folder of yearly county-daily files")
     ap.add_argument("--out-dir", default=".")
-    ap.add_argument("--base-start", type=int, default=1981)
+    ap.add_argument("--base-start", type=int, default=1951)
     ap.add_argument("--base-end", type=int, default=1999)
     ap.add_argument("--model-start", type=int, default=2000)
     ap.add_argument("--model-end", type=int, default=2023)
     args = ap.parse_args()
     os.makedirs(args.out_dir, exist_ok=True)
 
-    daily = load_daily(args.input)
-    check_completeness(daily)
-    daily = add_rolling(daily)
-    daily["year"] = daily["date"].dt.year
-    daily["month"] = daily["date"].dt.month
-    daily["frost"] = (daily["tmin"] < 0).astype(float).where(daily["tmin"].notna())
+    ppt, tmin = load_wide(args.input)
+    if ppt.index.year.min() > args.base_start:
+        warnings.warn(f"data start in {ppt.index.year.min()}, after --base-start {args.base_start}; "
+                      f"the baseline will be shorter than requested")
+    base_days = (ppt.index.year >= args.base_start) & (ppt.index.year <= args.base_end)
 
-    keys = ["GEOID", "year", "month"]
-    monthly = daily.groupby(keys).agg(
-        p_month=("ppt", "sum"),
-        rx1=("ppt", "max"),
-        rx3=("ppt3", "max"),
-        rx5=("ppt5", "max"),
-        frost_days=("frost", "sum"),
-        n_days=("ppt", "count"),
-    ).reset_index()
+    # Daily -> monthly
+    ppt3 = ppt.rolling(3, min_periods=3).sum()
+    ppt5 = ppt.rolling(5, min_periods=5).sum()
+    frost = (tmin < 0).astype("float32").where(tmin.notna())
+    M = {
+        "p_month": ppt.resample("MS").sum(min_count=1),
+        "rx1": ppt.resample("MS").max(),
+        "rx3": ppt3.resample("MS").max(),
+        "rx5": ppt5.resample("MS").max(),
+        "frost_days": frost.resample("MS").sum(min_count=1),
+        "n_days": ppt.notna().resample("MS").sum(),
+    }
+    del ppt3, frost
+    log("monthly totals and Rx done")
 
-    thr = baseline_thresholds(daily, monthly, args.base_start, args.base_end)
+    # Baseline thresholds
+    wet = ppt[base_days].where(ppt[base_days] >= WET_DAY_MM)
+    p95, p99 = wet.quantile(0.95), wet.quantile(0.99)
+    del wet
+    M["n_gt_p95"] = ppt.gt(p95, axis=1).resample("MS").sum()
+    M["n_gt_p99"] = ppt.gt(p99, axis=1).resample("MS").sum()
 
-    # Days above the county's baseline wet-day percentiles.
-    d = daily.merge(thr[["p95", "p99"]], left_on="GEOID", right_index=True, how="left")
-    d["gt95"] = (d["ppt"] > d["p95"]).astype(int)
-    d["gt99"] = (d["ppt"] > d["p99"]).astype(int)
-    exc = d.groupby(keys)[["gt95", "gt99"]].sum().rename(columns={"gt95": "n_gt_p95", "gt99": "n_gt_p99"})
-    monthly = monthly.merge(exc, left_on=keys, right_index=True, how="left")
+    rx5_annual = ppt5[base_days].resample("YS").max()
+    del ppt5
+    rl = pd.DataFrame({g: fit_gev_levels(rx5_annual[g].to_numpy()) for g in rx5_annual.columns},
+                      index=["rl2", "rl10", "rl25"]).T
+    thr = pd.concat([p95.rename("p95"), p99.rename("p99"), rl], axis=1)
+    thr.index.name = "GEOID"
+    M["rx5_gt_rl10"] = M["rx5"].gt(thr["rl10"], axis=1).astype(int)
+    M["rx5_rl_ratio"] = M["rx5"].div(thr["rl10"], axis=1)
+    log("thresholds and return levels done")
 
-    monthly = monthly.merge(thr[["rl10"]], left_on="GEOID", right_index=True, how="left")
-    monthly["rx5_gt_rl10"] = (monthly["rx5"] > monthly["rl10"]).astype(int)
-    monthly["rx5_rl_ratio"] = monthly["rx5"] / monthly["rl10"]
+    # SPI and prior-month features
+    base_months = (M["p_month"].index.year >= args.base_start) & (M["p_month"].index.year <= args.base_end)
+    p2 = M["p_month"].rolling(2, min_periods=2).sum()
+    M["spi1_prev"] = spi_wide(M["p_month"], base_months).shift(1)
+    M["spi2_prev"] = spi_wide(p2, base_months).shift(1)
+    M["frost_days_prev"] = M["frost_days"].shift(1)
+    log("SPI done")
 
-    monthly = monthly.sort_values(keys)
-    monthly["frost_days_prev"] = monthly.groupby("GEOID")["frost_days"].shift(1)
-    monthly = add_spi(monthly, args.base_start, args.base_end)
+    # Wide -> long, model years only
+    cols = ["p_month", "rx1", "rx3", "rx5", "n_gt_p95", "n_gt_p99", "rx5_gt_rl10", "rx5_rl_ratio",
+            "frost_days", "frost_days_prev", "spi1_prev", "spi2_prev", "n_days"]
+    keep = (M["p_month"].index.year >= args.model_start) & (M["p_month"].index.year <= args.model_end)
+    long = pd.concat({c: M[c][keep].stack(future_stack=True) for c in cols}, axis=1)
+    long.index.names = ["date", "GEOID"]
+    long = long.reset_index()
+    long["year"] = long["date"].dt.year
+    long["month"] = long["date"].dt.month
+    long = long[["GEOID", "year", "month"] + cols].sort_values(["GEOID", "year", "month"])
 
-    out = monthly[monthly["year"].between(args.model_start, args.model_end)]
-    short = out[out["n_days"] < out.apply(lambda r: pd.Period(f"{r.year}-{r.month}").days_in_month, axis=1)]
-    if len(short):
-        warnings.warn(f"{len(short)} county-months have incomplete daily data (see n_days)")
+    short = long["n_days"] < pd.to_datetime(dict(year=long.year, month=long.month, day=1)).dt.days_in_month
+    if short.any():
+        warnings.warn(f"{short.sum()} county-months have incomplete daily data (see n_days)")
 
-    cols = ["GEOID", "year", "month", "p_month", "rx1", "rx3", "rx5", "n_gt_p95", "n_gt_p99",
-            "rx5_gt_rl10", "rx5_rl_ratio", "frost_days", "frost_days_prev", "spi1_prev", "spi2_prev", "n_days"]
-    out[cols].to_csv(os.path.join(args.out_dir, "w_county_month.csv"), index=False, float_format="%.4f")
+    long.to_csv(os.path.join(args.out_dir, "w_county_month.csv"), index=False, float_format="%.4f")
     thr.to_csv(os.path.join(args.out_dir, "w_county_thresholds.csv"), float_format="%.4f")
-    print(f"wrote {len(out):,} county-months for {out['GEOID'].nunique()} counties to {args.out_dir}")
+    log(f"wrote {len(long):,} county-months for {long['GEOID'].nunique()} counties to {args.out_dir}")
 
 
 if __name__ == "__main__":
