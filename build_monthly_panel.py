@@ -6,11 +6,11 @@ import pandas as pd
 # month, including the months with NO recorded flood loss (loss = 0). SHELDUS only
 # lists county-months that had a loss, so a missing county-month means no
 # recorded loss. this is the table the hurdle model is trained and tested on.
-# run data_clean.py first to create loss_cleaned_monthly.csv
-# inputs attached so far: x (census housing). w (county rainfall), c (non-SHELDUS
-# flood climate) and a (adaptation) are added as their scripts are rebuilt
+# run data_clean.py and housing_features.py first.
+# the only input attached here is census housing (x); w, c, x and a from the other
+# sources are joined later by merge_panel.py
 LOSS_FILE = 'loss_cleaned_monthly.csv'
-EXPOSURE_FILE = 'exposure_by_county_year.csv'  # written by exposure_features.py
+EXPOSURE_FILE = 'housing_county_year.csv'  # written by housing_features.py
 START, END = 2000, 2023
 
 # the 12 states, by state FIPS code

@@ -65,23 +65,23 @@ Run from the repository root. Needs `pandas numpy scipy`; maps also need
 | # | Script | Reads | Writes | Status |
 |---|---|---|---|---|
 | 1 | `data_clean.py` | `direct_loss_aggregated_output_32423.csv` | `loss_cleaned_monthly.csv` (SHELDUS county-months, flags, logs) | Done |
-| 2 | `build_monthly_panel.py` | step 1, `exposure_by_county_year.csv` | `model_data_monthly_panel.csv`: Y + census housing, 303,840 rows | Done |
+| 2 | `housing_features.py` | `nhgis0001_csv/nhgis0001_ts_nominal_county.csv` | `housing_county_year.csv`: housing units and urban share, 1999–2023 | Done |
+| 2b | `build_monthly_panel.py` | steps 1 and 2 | `model_data_monthly_panel.csv`: Y + census housing, 303,840 rows | Done |
 | 3 | `prism_export.py` | Earth Engine | Drive CSVs, now in `data/gee_era5/` (1950–2023), `data/gee_nlcd/` (1999–2023), `data/gee_terrain/` | Done |
 | 4 | `prep_nclimgrid.py` | NOAA nClimGrid-Daily county files (8 GB, not in repo) | `data/nclimgrid_midwest/` (daily rain and Tmin, 1951–2023) | Done |
 | 5 | `w_indices.py` | step 4 | `out/w_county_month.csv` (W), `out/w_county_thresholds.csv` (C) | Done |
 | 6 | `build_panel.py` | steps 3 and 5 | `panel_county_month.csv`: inputs, 303,840 rows × 35 columns | Done |
 | 7 | `merge_panel.py` | steps 2, 5, 6, `data/clean/*` | `model_panel.csv`: 303,840 rows × 46 columns, no missing values | Done |
 | 8 | `maps.py` | step 7, `data/counties_midwest.geojson` | `maps/*.png` (7 maps) | Done |
-| 9 | `hurdle_model.py` | step 7 | printed tables, `results/hurdle_scores.csv` | Done (first version); the county-year version is `legacy/hurdle_model.py` |
+| 9 | `hurdle_model.py` | step 7 | printed tables, `results/hurdle_scores.csv` | Done (first version) |
 
-`exposure_by_county_year.csv` (census housing units and urban share) is made by
-the county-year `exposure_features.py`; it will be replaced by the census table
-from the data guide.
+`housing_county_year.csv` (census housing units and urban share) will be
+replaced by the census/ACS table from the data guide.
 
 Rebuild the git-ignored outputs (about 2 minutes):
 
 ```
-python data_clean.py && python build_monthly_panel.py
+python data_clean.py && python housing_features.py && python build_monthly_panel.py
 python w_indices.py --input data/nclimgrid_midwest --out-dir out/
 python build_panel.py --era5 data/gee_era5 --nlcd data/gee_nlcd --terrain data/gee_terrain --w out/w_county_month.csv --out panel_county_month.csv
 python merge_panel.py
@@ -210,24 +210,22 @@ numbers marked [snippet] or [unverified] must be checked. Key points: monthly an
 snowmelt and frozen ground matter as much in the Midwest (Berghuijs et al. 2016);
 use census components rather than SVI; lag adaptation one year.
 
-## Old county-year design
+## Old county-year design (removed 2026-11-01)
 
-`legacy/README.md` gives the run order. Results there (hurdle AUC 0.740 for any
-damage on 25,320 county-years) are pipeline checks only: they use
-climate-division rainfall and a SHELDUS-based C. `hazard_features.py`,
-`exposure_features.py`, `climatology_features.py` and `hurdle_model.py` in the
-root are the county-year versions; the first and third are superseded by
-steps 3–6 above. Unused data kept in the repo: `external_data/fema_nri/`
-(24 MB), `external_data/noaa/` (climate divisions), `nhgis0003_csv/` (ACS home
-value; may help the census table).
+The first design (one row per county per year, climate-division rainfall, a
+SHELDUS-based C) and its results (hurdle AUC 0.740 for any damage on 25,320
+county-years) were pipeline checks only. Its scripts, generated CSVs and
+unused data (FEMA National Risk Index, NOAA climate divisions, NHGIS 1919/1934
+farm tables and the ACS home-value extract nhgis0003, the EDA plots) were
+removed from the branch; they remain in git history at commit `fed41c4`
+(`git checkout fed41c4 -- legacy/` restores the old scripts).
 
 ## Working notes
 
 - Branches: `enci-dev` holds everything. `yan-dev2` is fully merged. `yana-dev`
-  has 3 commits not merged (comments added to the county-year
-  `data_clean.py`, `build_features_DU.py`, `exposure_features.py`,
-  `hazard_features.py`); `data_clean.py` has since been rewritten and
-  `build_features_DU.py` moved to `legacy/`, so they need a manual merge.
+  has 3 commits not merged: comments added to county-year scripts that have
+  since been rewritten (`data_clean.py`) or removed, so there is nothing left
+  to merge.
 - Two Claude Docs on the owner's claude.ai account: "Initial Model Findings and
   Process" (the report) and "Flood Impact Forecasting: Project Workflow".
 - NHGIS citation: Schroeder et al., *IPUMS NHGIS: Version 21.0* [dataset],
