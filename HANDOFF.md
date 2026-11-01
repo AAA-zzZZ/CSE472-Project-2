@@ -174,6 +174,30 @@ group: X = housing units, urban share, impervious %, water share, land within
 - Part 2 (amount) barely improves: MAE 0.862 log10 vs 0.905 for the baseline.
 - Simulation check: 40 of 40 coefficients recovered within 2 standard errors.
 
+## Model choice (2026-11-01)
+
+`model_comparison.py` (needs `lightgbm scikit-learn`) compares model families on the
+same split and scores as `hurdle_model.py`; `results/model_comparison.csv`. Full
+write-up with sources: `docs/model_selection/model_selection.md` (notes in
+`docs/model_selection/notes/`; most literature read from abstracts only).
+
+| Model (test 2017–2023) | ROC-AUC | PR-AUC | Top 5%, without largest month | MAE, damaged |
+|---|---|---|---|---|
+| Baseline: county × calendar-month rate | 0.728 | 0.066 | 0.266 | 0.905 |
+| GLM hurdle (`hurdle_model.py`) | 0.859 | 0.193 | 0.742 | 0.862 |
+| Random forest hurdle | 0.879 | 0.216 | 0.756 | 0.829 |
+| LightGBM hurdle | 0.886 | 0.252 | 0.723 | 0.816 |
+| LightGBM Tweedie | 0.864 | 0.180 | 0.549 | – |
+| LightGBM hurdle, known in advance only | 0.769 | 0.093 | 0.397 | 0.883 |
+
+Recommended stack: LightGBM hurdle as the main model (monotone constraints on
+hazard inputs); allocation by the rank average of LightGBM, random forest and
+GLM; per-state intercept recalibration fitted on 2017–2018; R-INLA BYM2 hurdle
+as the second method, then a hybrid with LightGBM predictions as covariates;
+county + year-month fixed effects with W × C, then DML / causal forest for τ;
+hurdle-structured conformal intervals. Open benchmark issue: the GLM uses 17
+inputs and the trees 39 + state + month, so refit the GLM on matched inputs.
+
 ## Still missing
 
 **Data** (teammate's guide, saved to `data/clean/` and joined by `merge_panel.py`
