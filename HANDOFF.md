@@ -84,7 +84,9 @@ Run from the repository root. Needs `pandas numpy scipy`; maps also need
 `census_county_year.csv` (step 6b) adds yearly census/ACS values, including
 `housing_units`; the models still use the step-2 columns until they are refit.
 
-Rebuild the git-ignored outputs (about 2 minutes):
+Rebuild the git-ignored outputs (about 3 minutes; checked from a clean checkout
+of `enci-dev` on 2026-11-01: every committed output, including both results
+files, reproduces byte for byte):
 
 ```
 python data_clean.py && python housing_features.py && python build_monthly_panel.py
@@ -93,10 +95,12 @@ python build_panel.py --era5 data/gee_era5 --nlcd data/gee_nlcd --terrain data/g
 python census_features.py
 python merge_panel.py
 python maps.py
+python hurdle_model.py          # about 1 minute
+python model_comparison.py      # about 2 minutes; needs lightgbm scikit-learn
 ```
 
 Git-ignored: `model_data_monthly_panel.csv` (21 MB), `out/w_county_month.csv`
-(28 MB), `panel_county_month.csv` (70 MB), `model_panel.csv` (88 MB).
+(28 MB), `panel_county_month.csv` (70 MB), `model_panel.csv` (104 MB).
 
 ## Variables in `model_panel.csv`
 
@@ -248,15 +252,23 @@ locally.
 
 **Models:**
 
-1. ~~Rewrite `hurdle_model.py` for county × month~~ (done 2026-11-01; see below).
-2. Confounding simulation (C raises W and A, A lowers Y).
-3. Bayesian spatial model: BYM2 hurdle in R-INLA (Moraga ch. 9).
-4. Forecast-like W and 80% prediction ranges with coverage.
-5. Calibration for the test years (the model expects 1.4× too many damage
-   months, up to 2–3× in 2021–2023 and in Iowa).
+Done: `hurdle_model.py` for county × month and `model_comparison.py` (results
+above). To do, in the order from Model choice:
+
+1. Tune the LightGBM hurdle with the census columns and monotone constraints;
+   refit the GLM hurdle on the same inputs; rank-average LightGBM, random
+   forest and GLM for allocation.
+2. Calibration for the test years (every model expects 1.3–1.4× too many damage
+   months, up to 2–3× in 2021–2023 and in Iowa): per-state intercept fitted on
+   2017–2018, checked on 2019–2023.
+3. Bayesian spatial model: BYM2 hurdle in R-INLA (Moraga ch. 9), then a hybrid
+   with LightGBM predictions as covariates.
+4. Causal: confounding simulation (C raises W and A, A lowers Y); county +
+   year-month fixed effects with W × C; then DML / causal forest.
+5. Forecast-like W and conformal prediction ranges with coverage.
 
 **Decisions open:** instructor approval of rain-climate C, NFIP/CRS as A and
-R-INLA; whether to add `scikit-learn`/`lightgbm` for a gradient-boosted hurdle.
+R-INLA. (Decided: `scikit-learn` and `lightgbm` are used, by `model_comparison.py`.)
 
 ## Literature review
 
@@ -283,8 +295,9 @@ removed from the branch; they remain in git history at commit `fed41c4`
   has 3 commits not merged: comments added to county-year scripts that have
   since been rewritten (`data_clean.py`) or removed, so there is nothing left
   to merge.
-- Two Claude Docs on the owner's claude.ai account: "Initial Model Findings and
-  Process" (the report) and "Flood Impact Forecasting: Project Workflow".
+- Two Claude Docs on the owner's claude.ai account: "Project Process and
+  Report" (the report; formerly "Initial Model Findings and Process") and
+  "Flood Impact Forecasting: Project Workflow".
 - NHGIS citation: Schroeder et al., *IPUMS NHGIS: Version 21.0* [dataset],
   Minneapolis, MN: IPUMS, 2026, doi:10.18128/D050.V21.0.
 - Two old South Dakota codes: 46113 Shannon = 46102 Oglala Lakota; 46131
