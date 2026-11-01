@@ -118,6 +118,24 @@ outcome panel join one-to-one on county, year and month (all 303,840 rows). At
 the monthly level 30% of nonzero property values are round (14% before 1996,
 54% after).
 
+**Maps** (`maps.py` → `maps/*.png`; county boundaries from the Census 2016
+cartographic file bundled with `plotly-geo`, saved to
+`data/counties_midwest.geojson`). What they show:
+
+- Rain climate (C) is smooth and wettest in the south (MO, southern IL/IN):
+  sensible.
+- June 2008: the 10-year-plus 5-day rain over Iowa, southern Wisconsin and
+  Indiana lines up with the loss; the inputs work for rain floods.
+- March 2019: losses follow the Missouri River (NE, western IA, MO) where local
+  rain was only ~0.8 of the 10-year level; it was river and snowmelt flooding
+  from upstream. Local rain misses this; USGS streamflow would add it.
+- **Reporting differs by state.** The share of months with damage jumps at state
+  lines with similar rain: 2000–2016 Iowa 7.9%, Ohio 6.7%, Indiana 5.2%, but
+  Illinois 2.6%, Minnesota 2.2%, Kansas 2.1% (mean 5-day rain ratio 0.28–0.41
+  in all). Iowa falls to 2.5% in 2017–2023 and Wisconsin rises from 3.2% to
+  4.7%. The model needs state (or NWS-office) effects, and Iowa's drop means
+  state effects learned in training will over-predict Iowa in the test years.
+
 Still to collect (teammate's guide, `data/clean/`): Census/ACS county table,
 NFIP policies in force, HMA buyouts and elevations, gNATSGO soil C/D share,
 optional CRS class. Every yearly table is saved for its own year; the merge
