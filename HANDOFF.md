@@ -98,7 +98,7 @@ input scripts from `yan-dev2` (merged 2026-11-01). Run from the repository root.
 | 4 | `prep_nclimgrid.py` | `data/nclimgrid_midwest/` (NOAA nClimGrid-Daily county rain and Tmin, 1951–2023) | Done |
 | 5 | `w_indices.py` | `out/w_county_month.csv` (W rainfall indices; git-ignored, 28 MB), `out/w_county_thresholds.csv` (C: 1951–1999 percentiles and return levels) | Done |
 | 6 | `build_panel.py` | `panel_county_month.csv`: inputs only, 303,840 rows × 35 columns (git-ignored, 70 MB) | Done |
-| 7 | `merge_panel.py` (new) | final table: inputs + Y + C, later the `data/clean/` tables | To do |
+| 7 | `merge_panel.py` | `model_panel.csv`: inputs + Y + C (1951–1999 rain climate), 303,840 rows × 46 columns, no missing values (git-ignored, 88 MB); joins the `data/clean/` tables with a one-year lag when they exist | Done |
 | 8 | `hurdle_model.py` | results | To rebuild for county × month |
 
 Rebuild the git-ignored files:
@@ -107,6 +107,7 @@ Rebuild the git-ignored files:
 python data_clean.py && python build_monthly_panel.py
 python w_indices.py --input data/nclimgrid_midwest --out-dir out/
 python build_panel.py --era5 data/gee_era5 --nlcd data/gee_nlcd --terrain data/gee_terrain --w out/w_county_month.csv --out panel_county_month.csv
+python merge_panel.py
 ```
 
 Checks: the monthly SHELDUS file adds up exactly to the county-year file; the
