@@ -104,6 +104,11 @@ Git-ignored: `model_data_monthly_panel.csv` (21 MB), `out/w_county_month.csv`
 
 ## Variables in `model_panel.csv`
 
+Full reference (every column plus planned variables: meaning, block, source,
+native resolution, aggregation, derivation, timing, scripts, model use and
+training-year statistics; plus datasets, exclusions and pipeline):
+`docs/variable_reference.xlsx`.
+
 | Block | Columns | Source |
 |---|---|---|
 | Keys | `GEOID`, `year`, `month`, `split` (train/test) | |
