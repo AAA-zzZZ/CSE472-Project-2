@@ -138,6 +138,8 @@ def main():
     args = ap.parse_args()
     os.makedirs(args.out_dir, exist_ok=True)
 
+    # ppt = daily precipitation averaged over a county in milimeters 
+    # tmin = daily minimum temp averaged over a county in celcius
     ppt, tmin = load_wide(args.input)
     if ppt.index.year.min() > args.base_start:
         warnings.warn(f"data start in {ppt.index.year.min()}, after --base-start {args.base_start}; "
