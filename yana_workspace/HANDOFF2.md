@@ -10,11 +10,10 @@ The focus is **Washington County, Ohio (GEOID 39167)** and its four Ohio
 neighbours. To stay under the Earth Engine cap, **the existing ERA5, NLCD and
 terrain exports are reused**; the only new pull is PRISM daily rain and Tmin for
 the 5 counties. After mentor feedback the pull was cut to **2000–2023 in 3
-export tasks; all 3 have been run** and the files are waiting in Google Drive
-to be copied into `data/gee_prism_39167/` (see
-[Update: later start year](#update-later-start-year-mentor-feedback-2026-11-04)).
-The county panel builder runs today on the existing data and adds the PRISM
-columns once the files are in `data/`. Nothing has been committed.
+export tasks; all 3 have been run and downloaded to `data/gee_prism39167/`**
+(see [Update: later start year](#update-later-start-year-mentor-feedback-2026-11-04)).
+Next: update `build_county_panel.py` for 2010–2023, then rebuild the panel
+with the PRISM columns. Nothing has been committed.
 
 ## What changed (the pivot)
 
@@ -259,44 +258,42 @@ python yana_workspace/prism_county_export.py --project flood-513221 --start 2020
 earthengine task list
 ```
 
-Download the Drive folder `gee_prism_39167` to `data/gee_prism_39167/`.
+The files were downloaded from the Drive folder `gee_prism_39167` to
+**`data/gee_prism39167/`** (no underscore before `39167`; the commands below
+use this path).
 
 ### Pull log (current)
 
-| Task | Years | File | Status |
-|---|---|---|---|
-| 1 | 2000–2009 | `prism_39167_2000_2009.csv` | Run; in Drive, not yet in `data/` |
-| 2 | 2010–2019 | `prism_39167_2010_2019.csv` | Run; in Drive, not yet in `data/` |
-| 3 | 2020–2023 | `prism_39167_2020_2023.csv` | Run; in Drive, not yet in `data/` |
+| Task | Years | File | Rows | Status |
+|---|---|---|---|---|
+| 1 | 2000–2009 | `prism_39167_2000_2009.csv` | 18,265 | Run; in `data/gee_prism39167/` |
+| 2 | 2010–2019 | `prism_39167_2010_2019.csv` | 18,260 | Run; in `data/gee_prism39167/` |
+| 3 | 2020–2023 | `prism_39167_2020_2023.csv` | 7,305 | Run; in `data/gee_prism39167/` |
 
-**Status:** all three commands have been run. The files still need to be
-downloaded from the Google Drive folder `gee_prism_39167` into
-`data/gee_prism_39167/` in the repository. Once they are there, the panel can
-be rebuilt (next section).
+**Status:** all three commands have been run and the files are downloaded.
+Checked: each file has the columns `GEOID, date, ppt, tmin`, all 5 GEOIDs
+(39009, 39111, 39115, 39121, 39167), every day of its years (rows = days × 5,
+leap days included) and no missing `ppt` or `tmin` values.
 
-### Rebuilding the panel once the files are in `data/`
+### Rebuilding the panel
 
-1. Download the 3 CSVs from Drive into `data/gee_prism_39167/`. Check that each
-   has the columns `GEOID, date, ppt, tmin` and the 5 GEOIDs (39167, 39009,
-   39111, 39115, 39121).
-2. Update `build_county_panel.py` for the new years (see
+1. Update `build_county_panel.py` for the new years (see
    [Code still to update](#code-still-to-update-for-the-new-years)).
-3. Build the rain indices and the rain climate (C), then the panel:
+2. Build the rain indices and the rain climate (C), then the panel:
 
 ```powershell
-python w_indices.py --input data/gee_prism_39167 --out-dir out/prism_39167/ --base-start 2000 --base-end 2009 --model-start 2010 --model-end 2023
+python w_indices.py --input data/gee_prism39167 --out-dir out/prism_39167/ --base-start 2000 --base-end 2009 --model-start 2010 --model-end 2023
 python yana_workspace/build_county_panel.py --w-dir out/prism_39167 --out-dir yana_workspace/data
 ```
 
-4. Fill in this pull log with "In `data/`" and record the row counts that
-   `build_county_panel.py` prints.
+3. Record the row counts that `build_county_panel.py` prints.
 
 ### Code still to update for the new years
 
 Both pieces of code still assume the old design:
 
 - **`w_indices.py`** needs the new years passed in:
-  `python w_indices.py --input data/gee_prism_39167 --out-dir out/prism_39167/ --base-start 2000 --base-end 2009 --model-start 2010 --model-end 2023`
+  `python w_indices.py --input data/gee_prism39167 --out-dir out/prism_39167/ --base-start 2000 --base-end 2009 --model-start 2010 --model-end 2023`
 - **`build_county_panel.py`** has `MODEL_START = 2000` hard-coded and the split
   at `year <= 2016`. Change them to 2010 and `year <= 2018`. Its ERA5
   soil-moisture baseline (1950–1999) can stay: ERA5 comes from GEE and is
