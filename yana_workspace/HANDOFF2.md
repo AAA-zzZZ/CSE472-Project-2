@@ -9,9 +9,12 @@ Google Earth Engine, and (2) the study focuses on one county and its neighbours.
 The focus is **Washington County, Ohio (GEOID 39167)** and its four Ohio
 neighbours. To stay under the Earth Engine cap, **the existing ERA5, NLCD and
 terrain exports are reused**; the only new pull is PRISM daily rain and Tmin for
-the 5 counties: **5 export tasks in total, not yet run**. The county panel
-builder runs today on the existing data and adds the PRISM columns once the
-pull is in. Nothing has been committed.
+the 5 counties. After mentor feedback the pull was cut to **2000–2023 in 3
+export tasks; all 3 have been run** and the files are waiting in Google Drive
+to be copied into `data/gee_prism_39167/` (see
+[Update: later start year](#update-later-start-year-mentor-feedback-2026-11-04)).
+The county panel builder runs today on the existing data and adds the PRISM
+columns once the files are in `data/`. Nothing has been committed.
 
 ## What changed (the pivot)
 
@@ -143,6 +146,10 @@ Download the Drive folder `gee_prism_39167` to `data/gee_prism_39167/`.
 
 ### Pull log
 
+Superseded: this 5-task plan was replaced by the 3-task plan in
+[Update: later start year](#update-later-start-year-mentor-feedback-2026-11-04).
+Tasks 1–2 (1981–1999) were not run; tasks 3–5 match the 3 tasks that were run.
+
 | Task | Years | File | Status |
 |---|---|---|---|
 | 1 | 1981–1990 | `prism_39167_1981_1990.csv` | Not run |
@@ -258,9 +265,31 @@ Download the Drive folder `gee_prism_39167` to `data/gee_prism_39167/`.
 
 | Task | Years | File | Status |
 |---|---|---|---|
-| 1 | 2000–2009 | `prism_39167_2000_2009.csv` | Not run |
-| 2 | 2010–2019 | `prism_39167_2010_2019.csv` | Not run |
-| 3 | 2020–2023 | `prism_39167_2020_2023.csv` | Not run |
+| 1 | 2000–2009 | `prism_39167_2000_2009.csv` | Run; in Drive, not yet in `data/` |
+| 2 | 2010–2019 | `prism_39167_2010_2019.csv` | Run; in Drive, not yet in `data/` |
+| 3 | 2020–2023 | `prism_39167_2020_2023.csv` | Run; in Drive, not yet in `data/` |
+
+**Status:** all three commands have been run. The files still need to be
+downloaded from the Google Drive folder `gee_prism_39167` into
+`data/gee_prism_39167/` in the repository. Once they are there, the panel can
+be rebuilt (next section).
+
+### Rebuilding the panel once the files are in `data/`
+
+1. Download the 3 CSVs from Drive into `data/gee_prism_39167/`. Check that each
+   has the columns `GEOID, date, ppt, tmin` and the 5 GEOIDs (39167, 39009,
+   39111, 39115, 39121).
+2. Update `build_county_panel.py` for the new years (see
+   [Code still to update](#code-still-to-update-for-the-new-years)).
+3. Build the rain indices and the rain climate (C), then the panel:
+
+```powershell
+python w_indices.py --input data/gee_prism_39167 --out-dir out/prism_39167/ --base-start 2000 --base-end 2009 --model-start 2010 --model-end 2023
+python yana_workspace/build_county_panel.py --w-dir out/prism_39167 --out-dir yana_workspace/data
+```
+
+4. Fill in this pull log with "In `data/`" and record the row counts that
+   `build_county_panel.py` prints.
 
 ### Code still to update for the new years
 
