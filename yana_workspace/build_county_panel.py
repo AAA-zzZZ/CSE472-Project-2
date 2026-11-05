@@ -9,12 +9,12 @@ Reuses (no new Earth Engine pulls):
   loss_cleaned_monthly.csv  SHELDUS outcome (0 where no record)
 New:
   --w-dir  output folder of w_indices.py run on the PRISM pull
-           -> p_month, rx5_rl_ratio, frost_days (W) and c_rx5_rl10_mm (C, 1981-1999)
+           -> p_month, rx5_rl_ratio, frost_days (W) and c_rx5_rl10_mm (C, 2000-2009 baseline)
            Optional, so the panel can be checked before PRISM arrives.
 
 Outputs (in --out-dir):
-  county_set_panel.csv  5 counties x 288 months: outcome + reduced inputs
-  focus_panel_39167.csv Washington's 288 months + nb_* columns: the land-area-weighted
+  county_set_panel.csv  5 counties x 168 months (2010-2023): outcome + reduced inputs
+  focus_panel_39167.csv Washington's 168 months + nb_* columns: the land-area-weighted
                         mean of the four neighbours' hazard in the same month
 
 Usage:
@@ -34,7 +34,7 @@ import build_panel as bp  # noqa: E402
 FOCUS = "39167"
 GEOIDS = ["39167", "39009", "39111", "39115", "39121"]
 NAMES = {"39167": "Washington", "39009": "Athens", "39111": "Monroe", "39115": "Morgan", "39121": "Noble"}
-MODEL_START, MODEL_END = 2000, 2023
+MODEL_START, MODEL_END = 2010, 2023  # analysis period; 2000-2009 is the PRISM rain baseline
 
 ERA5_COLS = ["sm_root_pct", "swe_mm", "snowmelt_mm"]
 NLCD_COLS = ["impervious_mean", "wetland_share"]
@@ -67,7 +67,7 @@ def outcome(loss_file):
     out = dollars.reindex(grid, fill_value=0.0).rename("PropertyDmgADJ").reset_index()
     out["log_PropertyDmgADJ"] = np.log10(out["PropertyDmgADJ"] + 1)
     out["has_damage"] = (out["PropertyDmgADJ"] > 0).astype(int)
-    out["split"] = np.where(out["year"] <= 2016, "train", "test")
+    out["split"] = np.where(out["year"] <= 2018, "train", "test")
     return out
 
 
