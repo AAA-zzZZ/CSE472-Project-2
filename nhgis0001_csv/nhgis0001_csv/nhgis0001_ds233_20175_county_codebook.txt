@@ -1,0 +1,223 @@
+--------------------------------------------------------------------------------
+Codebook for NHGIS data file 'nhgis0001_ds233_20175_county'
+--------------------------------------------------------------------------------
+ 
+Contents
+    - Data Summary
+    - Data Dictionary
+    - Citation and Use
+ 
+Additional documentation on NHGIS data sources is available at: 
+    https://www.nhgis.org/documentation/tabular-data 
+ 
+--------------------------------------------------------------------------------
+Data Summary
+--------------------------------------------------------------------------------
+ 
+Year:             2013-2017
+Geographic level: County (by State)
+Extent:           All areas
+Dataset:          2017 American Community Survey: 5-Year Data [2013-2017, Block Groups & Larger Areas]
+   NHGIS code:    2013_2017_ACS5a
+   NHGIS ID:      ds233
+Breakdown(s):     Geographic Component:
+                     Total area (00)
+Data type(s):     (E) Estimates
+                  (M) Margins of error
+ 
+Tables:
+ 
+1. Units in Structure
+   Universe:    Housing units
+   Source code: B25024
+   NHGIS code:  AH4W
+ 
+2. Year Structure Built
+   Universe:    Housing units
+   Source code: B25034
+   NHGIS code:  AH4Z
+ 
+3. Median Value (Dollars)
+   Universe:    Owner-occupied housing units
+   Source code: B25077
+   NHGIS code:  AH53
+ 
+--------------------------------------------------------------------------------
+Data Dictionary
+--------------------------------------------------------------------------------
+ 
+Context Fields 
+        GISJOIN:     GIS Join Match Code
+        YEAR:        Data File Year
+        STUSAB:      State Postal Abbreviation
+        REGIONA:     Region Code
+        DIVISIONA:   Division Code
+        STATE:       State Name
+        STATEA:      State Code
+        COUNTY:      County Name
+        COUNTYA:     County Code
+        COUSUBA:     County Subdivision Code
+        PLACEA:      Place Code
+        TRACTA:      Census Tract Code
+        BLKGRPA:     Block Group Code
+        CONCITA:     Consolidated City Code
+        AIANHHA:     American Indian Area/Alaska Native Area/Hawaiian Home Land Code
+        RES_ONLYA:   American Indian Area/Alaska Native Area (Reservation or Statistical Entity Only) Code
+        TRUSTA:      American Indian Area (Off-Reservation Trust Land Only)/Hawaiian Home Land Code
+        AIHHTLI:     American Indian Trust Land/ Hawaiian Home Land Indicator
+        AITSCEA:     Tribal Subdivision/Remainder Code
+        ANRCA:       Alaska Native Regional Corporation Code
+        CBSAA:       Metropolitan Statistical Area/Micropolitan Statistical Area Code
+        CSAA:        Combined Statistical Area Code
+        METDIVA:     Metropolitan Division Code
+        NECTAA:      New England City and Town Area Code
+        CNECTAA:     Combined New England City and Town Area Code
+        NECTADIVA:   New England City and Town Area Division Code
+        UAA:         Urban Area Code
+        CDCURRA:     Congressional District (2017-2019, 115th Congress) Code
+        SLDUA:       State Legislative District (Upper Chamber) Code
+        SLDLA:       State Legislative District (Lower Chamber) Code
+        ZCTA5A:      5-Digit ZIP Code Tabulation Area Code
+        SUBMCDA:     Subminor Civil Division Code
+        SDELMA:      School District (Elementary)/Remainder Code
+        SDSECA:      School District (Secondary)/Remainder Code
+        SDUNIA:      School District (Unified)/Remainder Code
+        PCI:         Principal City Indicator
+        PUMAA:       Public Use Microdata Area Code
+        GEOID:       Census Geographic Identifier
+        BTTRA:       Tribal Census Tract Code
+        BTBGA:       Tribal Block Group Code
+ 
+Data Type (E):
+    Estimates
+ 
+        NAME_E:      Area Name
+ 
+    Table 1:     Units in Structure
+    Universe:    Housing units
+    Source code: B25024
+    NHGIS code:  AH4W
+        AH4WE001:    Total
+        AH4WE002:    1, detached
+        AH4WE003:    1, attached
+        AH4WE004:    2
+        AH4WE005:    3 or 4
+        AH4WE006:    5 to 9
+        AH4WE007:    10 to 19
+        AH4WE008:    20 to 49
+        AH4WE009:    50 or more
+        AH4WE010:    Mobile home
+        AH4WE011:    Boat, RV, van, etc.
+ 
+    Table 2:     Year Structure Built
+    Universe:    Housing units
+    Source code: B25034
+    NHGIS code:  AH4Z
+        AH4ZE001:    Total
+        AH4ZE002:    Built 2014 or later
+        AH4ZE003:    Built 2010 to 2013
+        AH4ZE004:    Built 2000 to 2009
+        AH4ZE005:    Built 1990 to 1999
+        AH4ZE006:    Built 1980 to 1989
+        AH4ZE007:    Built 1970 to 1979
+        AH4ZE008:    Built 1960 to 1969
+        AH4ZE009:    Built 1950 to 1959
+        AH4ZE010:    Built 1940 to 1949
+        AH4ZE011:    Built 1939 or earlier
+ 
+    Table 3:     Median Value (Dollars)
+    Universe:    Owner-occupied housing units
+    Source code: B25077
+    NHGIS code:  AH53
+        AH53E001:    Median value (dollars)
+ 
+Data Type (M):
+    Margins of error
+ 
+        NAME_M:      Area Name
+ 
+    Table 1:     Units in Structure
+    Universe:    Housing units
+    Source code: B25024
+    NHGIS code:  AH4W
+        AH4WM001:    Total
+        AH4WM002:    1, detached
+        AH4WM003:    1, attached
+        AH4WM004:    2
+        AH4WM005:    3 or 4
+        AH4WM006:    5 to 9
+        AH4WM007:    10 to 19
+        AH4WM008:    20 to 49
+        AH4WM009:    50 or more
+        AH4WM010:    Mobile home
+        AH4WM011:    Boat, RV, van, etc.
+ 
+    Table 2:     Year Structure Built
+    Universe:    Housing units
+    Source code: B25034
+    NHGIS code:  AH4Z
+        AH4ZM001:    Total
+        AH4ZM002:    Built 2014 or later
+        AH4ZM003:    Built 2010 to 2013
+        AH4ZM004:    Built 2000 to 2009
+        AH4ZM005:    Built 1990 to 1999
+        AH4ZM006:    Built 1980 to 1989
+        AH4ZM007:    Built 1970 to 1979
+        AH4ZM008:    Built 1960 to 1969
+        AH4ZM009:    Built 1950 to 1959
+        AH4ZM010:    Built 1940 to 1949
+        AH4ZM011:    Built 1939 or earlier
+ 
+    Table 3:     Median Value (Dollars)
+    Universe:    Owner-occupied housing units
+    Source code: B25077
+    NHGIS code:  AH53
+        AH53M001:    Median value (dollars)
+ 
+--------------------------------------------------------------------------------
+Citation and Use of NHGIS Data
+--------------------------------------------------------------------------------
+ 
+All persons are granted a limited license to use this documentation and the
+accompanying data, subject to the following conditions:
+
+* REDISTRIBUTION: You will not redistribute the data without permission.
+
+  You may publish a subset of the data to meet journal requirements for accessing 
+  data related to a particular publication. Contact us for permission for any other 
+  redistribution; we will consider requests for free and commercial redistribution.
+
+* CITATION: You will cite NHGIS appropriately.
+
+    * Publications and research reports employing NHGIS data (either tabular or GIS) 
+      should include the following citation:
+
+        Jonathan Schroeder, David Van Riper, Steven Manson, Grace Cooper, Zachary Krause, Tracy Kugler, Tsu Zhu, and Steven Ruggles. 
+        IPUMS National Historical Geographic Information System: Version 21.0 
+        [dataset]. Minneapolis, MN: IPUMS. 2026. 
+        http://doi.org/10.18128/D050.V21.0
+
+    * For policy briefs, online resources, or articles in the popular press, we 
+      recommend that you cite the use of NHGIS data as follows:
+
+        IPUMS NHGIS, University of Minnesota, www.nhgis.org.
+
+These terms of use are a legally binding agreement. You can use the data only in 
+accordance with these terms, and any other use is a violation of the agreement. 
+Violations may result in revocation of the agreement and prohibition from using other 
+IPUMS data. If IPUMS or our partners are harmed from your violation, you are 
+responsible for all damages, including reasonable attorney's fees and expenses.
+        
+In addition, we request that users send us a copy of any publications, research
+reports, or educational material making use of the data or documentation.
+
+Send electronic material to: nhgis@umn.edu
+
+Printed matter should be sent to:
+
+    IPUMS NHGIS
+    Institute for Social Research and Data Innovation
+    University of Minnesota
+    50 Willey Hall
+    225 19th Ave S
+    Minneapolis, MN 55455
