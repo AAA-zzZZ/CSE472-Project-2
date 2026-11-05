@@ -262,8 +262,16 @@ print(f"\npooled 5 counties: train {len(ptrain)} rows ({ptrain.has_damage.sum()}
       f"test {len(ptest)} rows ({ptest.has_damage.sum()} damaged)")
 pbase = climatology(ptrain, ptest, group=("GEOID", "month"))
 ppreds, ptable = {"climatology": pbase}, {"climatology (county x month rate)": scores(ptest, pbase, pbase["p"])}
-for name, cols in {"own hazard": SEASON + HAZARD, "own + neighbour hazard": SEASON + HAZARD + NB}.items():
-    ppreds[name] = hurdle(ptrain, ptest, cols, CTY)
+POOLED = {"own hazard": (SEASON + HAZARD, CTY), "own + neighbour hazard": (SEASON + HAZARD + NB, CTY)}
+# exposure (GHSL population, run build_county_panel.py with --ghsl) + floodplain share in place
+# of the county indicators: does the setting explain why counties differ? Exposure barely
+# changes within a county, and 5 counties support at most ~2 county-level inputs.
+EXPOSURE = ["log_population", "hand_lt5_share"]
+if all(c in panel for c in EXPOSURE):
+    POOLED["own hazard + exposure (no county indicators)"] = (SEASON + HAZARD + EXPOSURE, ())
+    POOLED["own hazard, no county indicators"] = (SEASON + HAZARD, ())
+for name, (cols, dummies) in POOLED.items():
+    ppreds[name] = hurdle(ptrain, ptest, cols, dummies)
     ptable[name] = scores(ptest, ppreds[name], pbase["p"]) | {"ridge (p1, p2)": str(ppreds[name]["ridge"])}
     for part in ("b1", "b2"):
         coefs.append(ppreds[name][part].rename(f"pooled {name} | part {part[1]}"))

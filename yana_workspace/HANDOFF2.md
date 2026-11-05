@@ -389,19 +389,43 @@ driven by the upstream basin (Pittsburgh, West Virginia), far beyond the 4
 bordering counties. An upstream-basin rain index, or USGS river stage (not in
 GEE), is a better "neighbour" signal than adjacent-county rain.
 
-### Exposure from Earth Engine (`ghsl_county_export.py`), not yet run
+### Exposure from Earth Engine (`ghsl_county_export.py`), run 2026-11-05
 One task: GHSL built-up km² and population summed per county for epochs
-2005/2010/2015/2020. Download `ghsl_39167.csv` to `data/gee_ghsl39167/`, then:
+2005/2010/2015/2020. It ran on Earth Engine project **`cse472-project-2`**, now
+the script's default. `flood-513221` refuses this account (no IAM role). The
+file is in `data/gee_ghsl39167/ghsl_39167.csv` (20 rows).
 
 ```
-python yana_workspace/ghsl_county_export.py --project flood-513221
+python yana_workspace/ghsl_county_export.py
 python yana_workspace/build_county_panel.py --w-dir out/prism_39167 --out-dir yana_workspace/data --ghsl data/gee_ghsl39167
 ```
 
-`--ghsl` adds `built_share` and `log_population`, interpolated between epochs,
-held flat after 2020 and lagged one year like NLCD. Tested on made-up numbers
-only. Without `--ghsl` the panel output is byte-identical to before. With one
-county these barely vary over time; they matter in the pooled model.
+- **Panel:** `--ghsl` adds `built_share` and `log_population`, interpolated
+  between epochs, held flat after 2020 and lagged one year like NLCD. The
+  panels in `yana_workspace/data/` are now built with it (no missing values).
+  Without `--ghsl` the output matches the earlier panel.
+- **Check:** GHSL population matches the census. Washington ≈ 62k, Athens ≈ 65k,
+  Monroe, Morgan and Noble ≈ 15k each.
+- **Variation:** exposure barely changes within a county over 2010–2023, so it
+  only differs between the 5 counties. The county-level inputs also correlate
+  0.83–0.98 with each other (`built_share`, `log_population`, `impervious_mean`,
+  `land_km2`). With 5 counties, at most about 2 of them can enter.
+
+Pooled model, test 2019–2023, with exposure in place of the county indicators:
+
+| Model | ROC-AUC | PR-AUC | Brier skill |
+|---|---|---|---|
+| Own hazard, no county indicators | 0.84 | 0.53 | +0.09 |
+| Own hazard + `log_population` + `hand_lt5_share` | 0.89 | 0.69 | +0.23 |
+| Own hazard + county indicators | 0.91 | 0.71 | +0.25 |
+
+- **Exposure explains most of why counties differ.** The two exposure inputs
+  recover most of what the 4 county indicators add.
+- **Part 1 coefficients** (standardized): population +0.64 and floodplain
+  share +0.50 on the chance of damage. In part 2 (the amount) both are ≈ 0.
+- **Caveat:** this rests on 5 counties. Population also stands in for
+  reporting: bigger counties have more property and more people to report
+  damage. The data can't separate those.
 
 ### Earth Engine app (`gee_exposure_app.js`)
 - Code Editor script with 6 exposure heatmaps (GHSL built-up and population,
@@ -419,7 +443,9 @@ county these barely vary over time; they matter in the pooled model.
 ### Next
 1. Run the app in the Code Editor, fix any dataset or band errors, then publish
    it (Apps → New App).
-2. Run `ghsl_county_export.py`, rebuild with `--ghsl`, and refit the pooled model.
-3. Upload `predictions_5county.csv` and set `PRED_ASSET`.
+2. ~~Run `ghsl_county_export.py`, rebuild with `--ghsl`, and refit the pooled
+   model.~~ Done 2026-11-05 (see above).
+3. Upload `predictions_5county.csv` to project `cse472-project-2` and set
+   `PRED_ASSET`.
 4. Decide with the team whether to keep the neighbour question (null result
    above) or switch to an upstream-basin index.

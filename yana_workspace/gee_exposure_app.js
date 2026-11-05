@@ -64,7 +64,7 @@ var LAYERS = {
 
 // ---------- Model predictions (optional) ----------
 // Upload yana_workspace/results/predictions_5county.csv as a table asset (Assets > NEW > CSV),
-// then put its ID here, e.g. 'projects/flood-513221/assets/predictions_5county'.
+// then put its ID here, e.g. 'projects/cse472-project-2/assets/predictions_5county'.
 // Leave null to show exposure layers only. Predictions cover 2010-2023.
 var PRED_ASSET = null;
 

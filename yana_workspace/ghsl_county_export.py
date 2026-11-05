@@ -14,7 +14,7 @@ ONE export task for all epochs and all 5 counties (a few hundred thousand 100 m 
 compute is small).
 
 Example:
-    python yana_workspace/ghsl_county_export.py --project flood-513221
+    python yana_workspace/ghsl_county_export.py --project cse472-project-2
 
 Output: ghsl_39167.csv in Drive folder gee_ghsl_39167, columns GEOID, epoch, built_km2, population.
 Download it to data/gee_ghsl39167/.
@@ -44,7 +44,7 @@ def epoch_image(collection_id, band, epoch):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--project", required=True, help="Google Cloud project registered for Earth Engine")
+    ap.add_argument("--project", default="cse472-project-2", help="Google Cloud project registered for Earth Engine")
     ap.add_argument("--folder", default=f"gee_ghsl_{FOCUS}", help="Google Drive folder")
     args = ap.parse_args()
 
