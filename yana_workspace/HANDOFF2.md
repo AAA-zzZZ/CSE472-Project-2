@@ -61,7 +61,7 @@ figures, against 30% across the region (`is_round_property`).
 
 | Source | Used for | In GEE? | Decision |
 |---|---|---|---|
-| SHELDUS (`loss_cleaned_monthly.csv`) | Outcome Y | No | Kept: outcome, not an input (confirm with mentor) |
+| SHELDUS (`loss_cleaned_monthly.csv`) | Outcome Y | No | **Kept as the outcome** (decided 2026-11-05): the observed damage the model's predictions are trained and scored against, never an input |
 | NOAA nClimGrid-Daily (`prep_nclimgrid.py`, `data/nclimgrid_midwest/`) | `p_month`, `rx5_rl_ratio`, `frost_days`, C | No | **Replaced by PRISM** (the one new pull) |
 | ERA5-Land (`ECMWF/ERA5_LAND/...`) | `sm_root_pct`, `swe_mm`, `snowmelt_mm` | Yes | **Reused** from `data/gee_era5/` (1950–2023) |
 | Annual NLCD (`projects/sat-io/open-datasets/USGS/ANNUAL_NLCD/...`) | `impervious_mean`, `wetland_share` | Yes (community catalog) | **Reused** from `data/gee_nlcd/` (1999–2023) |
@@ -184,9 +184,20 @@ versions.
 4. Larger alternative: use all 5 counties as rows (`county_set_panel.csv`,
    1,440 rows, 154 damage months) with each county's neighbour hazard as a
    spatial-lag term.
-5. Decide with the mentor whether SHELDUS counts as allowed (it is the outcome),
-   and whether an Earth Engine exposure layer (JRC GHSL built-up, WorldPop)
-   should replace `log_housing_units`.
+5. ~~Decide whether SHELDUS counts as allowed, and which Earth Engine exposure
+   layer should replace `log_housing_units`.~~ Resolved 2026-11-05, see
+   [Decisions](#decisions-2026-11-05).
+
+## Decisions (2026-11-05)
+
+- **SHELDUS is the outcome.** It provides the observed property damage that the
+  model's predictions are trained and evaluated against (`has_damage`,
+  `log_PropertyDmgADJ`). It is not a model input, so the GEE-only rule for
+  inputs does not apply to it.
+- **Exposure layers go in an Earth Engine app.** The team is building an Earth
+  Engine app where the user selects one of several exposure layers and the app
+  shows it as a heatmap on the map. So no single layer has to be picked to
+  replace `log_housing_units`.
 
 ## Working notes
 
