@@ -61,6 +61,37 @@ var LAYERS = {
     vis: {min: 0, max: 100}, note: 'Static, 1984-2021', scale: 30
   }
 };
+
+// ---------- Model predictions (optional) ----------
+// Upload yana_workspace/results/predictions_5county.csv as a table asset (Assets > NEW > CSV),
+// then put its ID here, e.g. 'projects/flood-513221/assets/predictions_5county'.
+// Leave null to show exposure layers only. Predictions cover 2010-2023.
+var PRED_ASSET = null;
+
+function countyValue(y, column, reducer) {
+  var rows = ee.FeatureCollection(PRED_ASSET).filter(ee.Filter.eq('year', y));
+  return counties.map(function (c) {
+    var g = ee.String(c.get('GEOID'));
+    // the CSV upload may store GEOID as a number, so match either form
+    var mine = rows.filter(ee.Filter.or(ee.Filter.eq('GEOID', g), ee.Filter.eq('GEOID', ee.Number.parse(g))));
+    return c.set('v', reducer === 'sum' ? mine.aggregate_sum(column) : mine.aggregate_mean(column));
+  }).reduceToImage(['v'], ee.Reducer.first()).rename('v');
+}
+
+if (PRED_ASSET) {
+  LAYERS['Model: mean monthly P(damage)'] = {
+    image: function (y) { return countyValue(y, 'p_damage', 'mean'); },
+    vis: {min: 0, max: 0.6}, note: 'Hurdle model (own + neighbour hazard), trained 2010-2018', scale: 500
+  };
+  LAYERS['Model: expected damage in year ($)'] = {
+    image: function (y) { return countyValue(y, 'expected_dmg', 'sum'); },
+    vis: {min: 0, max: 2000000}, note: 'Sum of monthly expected loss, 2024 $', scale: 500
+  };
+  LAYERS['SHELDUS: observed damage months'] = {
+    image: function (y) { return countyValue(y, 'has_damage', 'sum'); },
+    vis: {min: 0, max: 6}, note: 'Months with reported property damage (SHELDUS)', scale: 500
+  };
+}
 var PALETTE = ['#000004', '#3b0f70', '#8c2981', '#de4968', '#fe9f6d', '#fcfdbf']; // magma
 
 // ---------- UI ----------

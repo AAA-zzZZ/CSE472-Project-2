@@ -22,6 +22,7 @@ Usage:
 """
 
 import argparse
+import glob
 import os
 import sys
 
@@ -71,6 +72,26 @@ def outcome(loss_file):
     return out
 
 
+def load_ghsl(folder):
+    """GHSL exposure (ghsl_county_export.py): interpolate the 5-year epochs to every year, then
+    lag by one year like NLCD, so each month only sees exposure measured before it.
+      log_population = ln(people), built_share = built-up km2 / land km2 (built_share is set later)."""
+    g = pd.concat([pd.read_csv(f, dtype={"GEOID": str}) for f in
+                   sorted(glob.glob(os.path.join(folder, "*.csv")))])
+    g["GEOID"] = g["GEOID"].str.zfill(5)
+    years = range(g["epoch"].min(), MODEL_END + 1)
+    rows = []
+    for gid, d in g.groupby("GEOID"):
+        d = d.sort_values("epoch")
+        for col in ["built_km2", "population"]:
+            # linear between epochs, held flat after the last one
+            vals = np.interp(list(years), d["epoch"], d[col])
+            rows.append(pd.DataFrame({"GEOID": gid, "year": [y + 1 for y in years], "col": col, "v": vals}))
+    out = pd.concat(rows).pivot_table(index=["GEOID", "year"], columns="col", values="v").reset_index()
+    out["log_population"] = np.log(out["population"])
+    return out[["GEOID", "year", "built_km2", "log_population"]]
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--era5", default="data/gee_era5")
@@ -79,6 +100,7 @@ def main():
     ap.add_argument("--loss", default="loss_cleaned_monthly.csv")
     ap.add_argument("--w-dir", help="w_indices.py output folder for the PRISM pull")
     ap.add_argument("--out-dir", default="yana_workspace/data")
+    ap.add_argument("--ghsl", help="folder with ghsl_39167.csv from ghsl_county_export.py (optional)")
     args = ap.parse_args()
 
     panel = outcome(args.loss)
@@ -88,6 +110,10 @@ def main():
     panel = (panel.merge(era5[["GEOID", "year", "month"] + ERA5_COLS], on=["GEOID", "year", "month"], how="left")
                   .merge(nlcd[["GEOID", "year"] + NLCD_COLS], on=["GEOID", "year"], how="left")
                   .merge(terrain[["GEOID"] + TERRAIN_COLS], on="GEOID", how="left"))
+
+    if args.ghsl:
+        panel = panel.merge(load_ghsl(args.ghsl), on=["GEOID", "year"], how="left")
+        panel["built_share"] = panel.pop("built_km2") / panel["land_km2"]
 
     nb_cols = [c for c in NB_COLS if c not in W_COLS]
     if args.w_dir:
