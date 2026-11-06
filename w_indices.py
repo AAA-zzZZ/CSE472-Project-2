@@ -49,11 +49,26 @@ WET_DAY_MM = 1.0
 
 
 def log(msg, t0=[time.time()]):
+    """Print a progress message prefixed with seconds elapsed since the script started.
+
+    No math beyond elapsed = now - t0. The mutable default t0 is evaluated once at import,
+    so every call measures from the same start time.
+    """
     print(f"[{time.time() - t0[0]:6.0f}s] {msg}", flush=True)
 
 
 def load_wide(folder):
-    """Read all yearly files and return two day x county tables (ppt, tmin) on a complete daily index."""
+    """Read all yearly files and return two day x county tables (ppt, tmin) on a complete daily index.
+
+    Calculation:
+      1. Each yearly file is long format (one row per GEOID x date). It is pivoted to a wide
+         table where rows = days and columns = counties, so cell [d, g] = value for county g on day d.
+      2. The yearly tables are stacked in time, duplicate days dropped, and sorted.
+      3. The table is reindexed onto every calendar day from first to last date, so a missing
+         day shows up as NaN instead of silently disappearing. This matters later because the
+         rolling 3/5-day sums assume consecutive rows are consecutive days.
+      4. Gap rate = mean over all cells of isna(), i.e. (# missing county-days) / (# county-days).
+    """
     files = sorted(glob.glob(os.path.join(folder, "*.csv")) + glob.glob(os.path.join(folder, "*.csv.gz")))
     if not files:
         raise SystemExit(f"no .csv or .csv.gz files in {folder}")
@@ -86,7 +101,25 @@ def load_wide(folder):
 
 
 def fit_gev_levels(annual_max, periods=(2, 10, 25)):
-    """GEV return levels from annual maxima; falls back to Gumbel if the GEV fit is unstable."""
+    """GEV return levels from annual maxima; falls back to Gumbel if the GEV fit is unstable.
+
+    Input is one county's baseline annual maxima (e.g. the largest 5-day rainfall in each year).
+    Extreme value theory says block maxima follow a Generalized Extreme Value distribution:
+        F(x) = exp( -[1 + xi * (x - mu) / sigma]^(-1/xi) )
+    with location mu, scale sigma > 0 and shape xi. (scipy's shape c = -xi.)
+
+    The T-year return level is the amount exceeded on average once every T years, i.e. with
+    probability 1/T in any year. So it is the quantile at non-exceedance probability p = 1 - 1/T:
+        RL_T = F^-1(1 - 1/T)        e.g. T=10 -> 90th percentile of the annual-max distribution.
+
+    Steps:
+      * Drop non-finite values; need >= 10 years or return NaN (too few to fit 3 parameters).
+      * Fit (c, loc, scale) by maximum likelihood.
+      * If |c| >= 0.5 or scale <= 0 the fit is treated as unstable (heavy-tailed shapes blow up
+        the long return levels), and a Gumbel is fitted instead. Gumbel is the GEV with xi = 0:
+            F(x) = exp( -exp( -(x - mu) / sigma ) )
+      * Return F^-1(1 - 1/T) for each T in periods (default 2, 10, 25 years).
+    """
     x = np.asarray(annual_max, dtype=float)
     x = x[np.isfinite(x)]
     if len(x) < 10:
@@ -103,7 +136,31 @@ def fit_gev_levels(annual_max, periods=(2, 10, 25)):
 
 
 def spi_wide(p, base_mask):
-    """SPI for a month x county table, fitted separately for each calendar month on baseline rows."""
+    """SPI for a month x county table, fitted separately for each calendar month on baseline rows.
+
+    SPI (Standardized Precipitation Index) converts a precipitation total into a z-score:
+    how unusually wet or dry it is compared with the same calendar month in the baseline.
+    SPI = 0 is normal, +2 is very wet, -2 is very dry.
+
+    For each calendar month m (so Januaries are compared only with Januaries) and each county:
+      1. Take the baseline values for month m (one per baseline year).
+      2. Zero probability: q = (# baseline years with 0 precipitation) / (# valid baseline years).
+         The gamma distribution only covers x > 0, so dry months are handled separately.
+      3. Fit a gamma distribution to the positive values with Thom's (1958) estimator:
+             A     = ln(mean(x)) - mean(ln(x))
+             alpha = (1 + sqrt(1 + 4A/3)) / (4A)       shape
+             beta  = mean(x) / alpha                   scale
+      4. Mixed CDF for every year (baseline and model years) using the baseline fit:
+             H(x) = q + (1 - q) * G(x; alpha, beta)
+         where G is the gamma CDF (G(0) = 0, so a dry month gets H = q).
+      5. Transform the probability to a standard normal z-score:
+             SPI = Phi^-1(H)
+         H is clipped to [0.001, 0.999] first, so SPI stays within about +/-3.09.
+      6. A county-month is set to NaN if there are fewer than 10 baseline years, fewer than 5
+         positive baseline values, or alpha is invalid; and wherever the input value is NaN.
+
+    Passing 1-month totals gives SPI-1; passing rolling 2-month totals gives SPI-2.
+    """
     out = pd.DataFrame(np.nan, index=p.index, columns=p.columns, dtype="float64")
     for m in range(1, 13):
         rows = p.index.month == m
@@ -128,6 +185,26 @@ def spi_wide(p, base_mask):
 
 
 def main():
+    """Build every W variable for every county x month and write the two output CSVs.
+
+    Calculations (per county g, month t, day d; P_d = daily precipitation, T_d = daily Tmin):
+      p_month      = sum of P_d over days in t
+      rx1          = max over days in t of P_d
+      rx3, rx5     = max over days in t of the trailing k-day sum S_d = P_{d-k+1} + ... + P_d
+                     (k = 3 or 5); a window is assigned to the month of its last day
+      frost_days   = count of days in t with T_d < 0 C
+      n_days       = count of days in t with non-missing P_d
+      p95, p99     = 95th / 99th percentile of baseline wet days (P_d >= 1 mm) for county g
+      n_gt_p95/p99 = count of days in t with P_d > p95 (or p99)
+      rl10         = 10-year return level from a GEV fit to baseline annual max of S_d (k = 5)
+      rx5_gt_rl10  = 1 if rx5 > rl10 else 0
+      rx5_rl_ratio = rx5 / rl10    (> 1 means a worse-than-10-year 5-day event)
+      spi1_prev    = SPI of p_month in month t-1
+      spi2_prev    = SPI of (p_month_{t-2} + p_month_{t-1}), the 2-month total ending in t-1
+      frost_days_prev = frost_days in month t-1
+    The "_prev" features are shifted one month so they only use information before month t.
+    All thresholds (p95, p99, rl10, SPI fits) use baseline years only; output keeps model years only.
+    """
     ap = argparse.ArgumentParser()
     ap.add_argument("--input", required=True, help="folder of yearly county-daily files")
     ap.add_argument("--out-dir", default=".")
@@ -138,6 +215,8 @@ def main():
     args = ap.parse_args()
     os.makedirs(args.out_dir, exist_ok=True)
 
+    # ppt = daily precipitation averaged over a county in milimeters 
+    # tmin = daily minimum temp averaged over a county in celcius
     ppt, tmin = load_wide(args.input)
     if ppt.index.year.min() > args.base_start:
         warnings.warn(f"data start in {ppt.index.year.min()}, after --base-start {args.base_start}; "

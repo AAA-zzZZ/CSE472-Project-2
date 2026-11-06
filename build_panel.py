@@ -47,6 +47,12 @@ LAYER_CM = {"sm1": 7, "sm2": 21, "sm3": 72}
 
 
 def read_folder(folder, pattern="*.csv"):
+    """Read every CSV in a folder into one table and return (table, number of files).
+
+    No math: the files are stacked row-wise. GEOID is read as text and left-padded with zeros
+    to 5 digits (2-digit state FIPS + 3-digit county FIPS), so e.g. "1001" becomes "01001" and
+    keys match across datasets.
+    """
     files = sorted(glob.glob(os.path.join(folder, pattern)))
     if not files:
         raise SystemExit(f"no CSV files found in {folder}")
@@ -56,7 +62,18 @@ def read_folder(folder, pattern="*.csv"):
 
 
 def baseline_percentile(df, col, base_start, base_end):
-    """Percentile (0-1) of each value against the same county and calendar month in the baseline years."""
+    """Percentile (0-1) of each value against the same county and calendar month in the baseline years.
+
+    For each county g and calendar month m (so a March is only compared with past Marches):
+      1. ref = the sorted baseline values of col for (g, m), one per baseline year.
+         If there are fewer than 10, the percentile is left NaN (too few years to rank against).
+      2. For every value x of (g, m), in any year, the percentile is the empirical CDF:
+             pct(x) = (# baseline values <= x) / (# baseline values)
+         np.searchsorted(ref, x, side="right") returns exactly that count, because it finds the
+         position just after the last ref value that is <= x.
+    So 0.9 means the value is wetter than 90% of baseline years for that county and month,
+    0 means below every baseline year and 1 means at or above the baseline maximum.
+    """
     out = pd.Series(np.nan, index=df.index)
     base = df["year"].between(base_start, base_end)
     for _, idx in df.groupby(["GEOID", "month"]).groups.items():
@@ -70,6 +87,27 @@ def baseline_percentile(df, col, base_start, base_end):
 
 
 def load_era5(folder, base_start, base_end):
+    """Load ERA5-Land county-month exports and compute the soil moisture and snow features.
+
+    Inputs per county-month: sm1, sm2, sm3 = volumetric soil water (m3 water / m3 soil) in the
+    0-7, 7-28 and 28-100 cm layers on day 1 of the month; swe = snow water equivalent on day 1 (m);
+    snowmelt_month = total snowmelt during the month (m of water).
+
+    Calculations:
+      sm_surface       = sm1 (top 0-7 cm layer)
+      sm_root          = depth-weighted average over 0-100 cm:
+                           (7*sm1 + 21*sm2 + 72*sm3) / 100
+                         each layer counts in proportion to its thickness
+      swe_mm           = swe * 1000          (metres -> millimetres)
+      snowmelt_mm      = snowmelt_month * 1000
+      snowmelt_prev_mm = snowmelt_mm of the previous month for the same county (shift by 1 row
+                         after sorting by county, year, month)
+      sm_root_pct      = percentile of sm_root vs baseline years, same county and calendar month
+                         (see baseline_percentile)
+      sm_root_anom     = sm_root - sm_clim, where sm_clim is the baseline mean of sm_root for
+                         that county and calendar month (positive = wetter than normal)
+    Duplicate (GEOID, date) rows are dropped first, so a year exported twice is not double counted.
+    """
     df, n = read_folder(folder)
     df["date"] = pd.to_datetime(df["date"])
     before = len(df)
@@ -98,6 +136,15 @@ def load_era5(folder, base_start, base_end):
 
 
 def load_nlcd(folder):
+    """Load the NLCD county-year land cover table and lag it by one year.
+
+    Calculations:
+      wetland_change_since_1999 = wetland_share(year) - wetland_share(1999) for the same county
+                                  (negative = wetlands lost since the end of the baseline)
+      year -> year + 1          the land cover measured in year t is attached to model year t + 1,
+                                so every month only sees land cover that existed before it
+    The share columns (developed, wetland, water, impervious) are passed through unchanged.
+    """
     df, n = read_folder(folder)
     df = df.drop_duplicates(["GEOID", "year"]).sort_values(["GEOID", "year"])
     print(f"NLCD: {n} files, {df['year'].min()}-{df['year'].max()}, {df['GEOID'].nunique()} counties")
@@ -108,6 +155,14 @@ def load_nlcd(folder):
 
 
 def load_terrain(folder):
+    """Load the static terrain table (one row per county, no time dimension).
+
+    Calculations:
+      land_km2  = ALAND / 1e6     Census land area, square metres -> square kilometres
+      water_km2 = AWATER / 1e6    Census water area, same conversion
+    The terrain columns (elev_mean, slope_mean, flat_share, hand_mean, hand_lt5_share) are
+    passed through unchanged; they are the same for every month of a county.
+    """
     df, _ = read_folder(folder)
     df = df.drop_duplicates("GEOID")
     df["land_km2"] = df.pop("ALAND") / 1e6
@@ -117,6 +172,20 @@ def load_terrain(folder):
 
 
 def main():
+    """Join all sources into one county x month panel, check it, and write it out.
+
+    Steps:
+      1. Start from the ERA5 rows in the model years (default 2000-2023); this sets the panel rows.
+      2. Left-join NLCD on (GEOID, year), already lagged so year t carries land cover from t - 1.
+      3. Left-join terrain on GEOID (same values for every month of a county).
+      4. If --w is given, left-join the rainfall indices on (GEOID, year, month) and add
+             rain_x_wetsoil = rx5_rl_ratio * sm_root_pct
+         an interaction term: a big 5-day rain (relative to the 10-year return level) scaled by
+         how wet the soil already was, since rain on saturated ground runs off instead of soaking in.
+    Checks:
+      expected rows = (# counties) * (# model years) * 12; a warning is printed if it differs.
+      missing share per column = (# NaN rows) / (# rows), printed for any column above 0.
+    """
     ap = argparse.ArgumentParser()
     ap.add_argument("--era5", required=True)
     ap.add_argument("--nlcd", required=True)

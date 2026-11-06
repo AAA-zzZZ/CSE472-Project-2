@@ -1,7 +1,10 @@
 # Handoff 2: Pivot to Earth Engine Only, Washington County, Ohio (CSE 472, Project 2)
 
-Read this after `HANDOFF.md`. It covers the session of 2026-11-04 on branch
-`yan-dev2`. Everything created in this session is in `yana_workspace/`.
+Read this after `HANDOFF.md`. It covers the sessions of 2026-11-04 (on branch
+`yan-dev2`, merged into `enci-dev`) and 2026-11-05 (on `enci-dev`). Everything
+created in these sessions is in `yana_workspace/`. **For the latest status, start
+at [Session 2026-11-05](#session-2026-11-05-panel-rebuilt-neighbour-model-gee-app)
+at the end of this file.**
 
 **Status (2026-11-04):** the input list was narrowed to 12 inputs + 2 controls,
 and the project pivoted to two mentor rules: (1) every input must come from
@@ -12,8 +15,8 @@ terrain exports are reused**; the only new pull is PRISM daily rain and Tmin for
 the 5 counties. After mentor feedback the pull was cut to **2000–2023 in 3
 export tasks; all 3 have been run and downloaded to `data/gee_prism39167/`**
 (see [Update: later start year](#update-later-start-year-mentor-feedback-2026-11-04)).
-Next: update `build_county_panel.py` for 2010–2023, then rebuild the panel
-with the PRISM columns. Nothing has been committed.
+On 2026-11-05 the panel was rebuilt for 2010–2023 with the PRISM columns and
+the neighbour model was fitted (see the last section).
 
 ## What changed (the pivot)
 
@@ -61,7 +64,7 @@ figures, against 30% across the region (`is_round_property`).
 
 | Source | Used for | In GEE? | Decision |
 |---|---|---|---|
-| SHELDUS (`loss_cleaned_monthly.csv`) | Outcome Y | No | Kept: outcome, not an input (confirm with mentor) |
+| SHELDUS (`loss_cleaned_monthly.csv`) | Outcome Y | No | **Kept as the outcome** (decided 2026-11-05): the observed damage the model's predictions are trained and scored against, never an input |
 | NOAA nClimGrid-Daily (`prep_nclimgrid.py`, `data/nclimgrid_midwest/`) | `p_month`, `rx5_rl_ratio`, `frost_days`, C | No | **Replaced by PRISM** (the one new pull) |
 | ERA5-Land (`ECMWF/ERA5_LAND/...`) | `sm_root_pct`, `swe_mm`, `snowmelt_mm` | Yes | **Reused** from `data/gee_era5/` (1950–2023) |
 | Annual NLCD (`projects/sat-io/open-datasets/USGS/ANNUAL_NLCD/...`) | `impervious_mean`, `wetland_share` | Yes (community catalog) | **Reused** from `data/gee_nlcd/` (1999–2023) |
@@ -105,7 +108,7 @@ figures, against 30% across the region (`is_round_property`).
 - **One task per pull:** all days in the year range go into a single table, so the 1981–2023 pull is 5 tasks, not 43. The old `prism_export.py prism` command made one task per year.
 - **Output:** `prism_39167_<start>_<end>.csv` with columns `GEOID, date, ppt, tmin`, which is what `w_indices.py` reads. The files land in Drive folder `gee_prism_39167`.
 - **10-year limit:** it refuses any pull longer than 10 years.
-- **Checked locally:** it compiles and rejects 1981–1999. **Not yet run against Earth Engine.**
+- **Checked locally:** it compiles and rejects 1981–1999. Run on 2026-11-04 for 2000–2009, 2010–2019 and 2020–2023 (see the current pull log).
 
 ### `build_county_panel.py`
 
@@ -184,9 +187,20 @@ versions.
 4. Larger alternative: use all 5 counties as rows (`county_set_panel.csv`,
    1,440 rows, 154 damage months) with each county's neighbour hazard as a
    spatial-lag term.
-5. Decide with the mentor whether SHELDUS counts as allowed (it is the outcome),
-   and whether an Earth Engine exposure layer (JRC GHSL built-up, WorldPop)
-   should replace `log_housing_units`.
+5. ~~Decide whether SHELDUS counts as allowed, and which Earth Engine exposure
+   layer should replace `log_housing_units`.~~ Resolved 2026-11-05, see
+   [Decisions](#decisions-2026-11-05).
+
+## Decisions (2026-11-05)
+
+- **SHELDUS is the outcome.** It provides the observed property damage that the
+  model's predictions are trained and evaluated against (`has_damage`,
+  `log_PropertyDmgADJ`). It is not a model input, so the GEE-only rule for
+  inputs does not apply to it.
+- **Exposure layers go in an Earth Engine app.** The team is building an Earth
+  Engine app where the user selects one of several exposure layers and the app
+  shows it as a heatmap on the map. So no single layer has to be picked to
+  replace `log_housing_units`.
 
 ## Working notes
 
@@ -307,3 +321,131 @@ Both pieces of code still assume the old design:
 > 2000–2023 only: 2000–2009 as the rainfall baseline and 2010–2023 as the
 > analysis period (48 of the county's 57 flood-damage months fall in it). All
 > inputs will then come from GEE.
+
+## Session 2026-11-05: panel rebuilt, neighbour model, GEE app
+
+### Decisions
+See [Decisions (2026-11-05)](#decisions-2026-11-05): SHELDUS is the outcome the
+model is trained and scored against, and exposure layers are shown in an Earth
+Engine app rather than picking one to replace `log_housing_units`.
+
+### Panel rebuilt for 2010–2023
+The [code changes for the new years](#code-still-to-update-for-the-new-years)
+are done: `build_county_panel.py` has `MODEL_START = 2010` and trains on
+`year <= 2018`.
+
+```
+python w_indices.py --input data/gee_prism39167 --out-dir out/prism_39167/ --base-start 2000 --base-end 2009 --model-start 2010 --model-end 2023
+python yana_workspace/build_county_panel.py --w-dir out/prism_39167 --out-dir yana_workspace/data
+```
+
+- `w_indices.py` (needs `scipy`): 840 county-months. `p_month`, `rx5_rl_ratio`
+  and `frost_days` have no gaps. The 10-year 5-day level (C) is 96–108 mm.
+  It needs at least 10 baseline years, and 2000–2009 is exactly 10.
+- Panel: 840 rows (5 counties × 168 months), no missing values. Focus panel:
+  168 rows with the 6 `nb_*` columns.
+
+| County | Damage months 2010–2023 | Train 2010–2018 | Test 2019–2023 |
+|---|---|---|---|
+| Washington | 48 | 26 | 22 |
+| Athens | 35 | 19 | 16 |
+| Morgan | 15 | 7 | 8 |
+| Noble | 7 | 5 | 2 |
+| Monroe | 5 | 3 | 2 |
+
+### Neighbour model (`neighbour_model.py`)
+GLM hurdle as in `hurdle_model.py`, numpy only. Inputs: the 6 monthly hazard
+columns plus a sin/cos season (11 month dummies are too many for 26 training
+damage months). Ridge picked by leave-one-year-out CV inside 2010–2018. Outputs
+are in `yana_workspace/results/`.
+
+Washington alone, test 2019–2023:
+
+| Model | ROC-AUC | PR-AUC | Brier skill vs climatology |
+|---|---|---|---|
+| Climatology (month rate) | 0.63 | 0.56 | 0 |
+| Own hazard | 0.81 | 0.74 | +0.16 |
+| Own + neighbour hazard | 0.79 | 0.73 | +0.13 |
+| Neighbour hazard only | 0.88 | 0.83 | +0.29 |
+
+Pooled, 5 counties with county indicators (test: 300 rows, 50 damaged): own
+0.91 AUC, own + neighbour 0.90.
+
+**Finding: the neighbours' hazard adds nothing measurable.**
+- Own and neighbour hazard correlate 0.92–1.00. ERA5 snow and soil are almost
+  the same across 5 adjacent counties, and so is monthly rain (0.97).
+- Adding `nb_*` lowers AUC slightly in both setups. The year bootstrap puts the
+  change at [−0.03, 0.00] for Washington and [−0.017, −0.006] pooled.
+- "Neighbour only" scoring best on the test years is noise. Over all 14 years
+  (leave one year out), own 0.84, own + neighbour 0.84 and neighbour only 0.83
+  are equal.
+- Using only the difference (neighbour minus own rain) also hurts part 1
+  (AUC 0.71). It improves part 2 RMSE (0.81 to 0.62 log10 $) on 22 damaged test
+  months, which is too few to rely on.
+- The hazard model clearly beats climatology (AUC 0.81–0.91 vs 0.63–0.73).
+
+**Ideas if the neighbour question stays:** Ohio River flooding at Marietta is
+driven by the upstream basin (Pittsburgh, West Virginia), far beyond the 4
+bordering counties. An upstream-basin rain index, or USGS river stage (not in
+GEE), is a better "neighbour" signal than adjacent-county rain.
+
+### Exposure from Earth Engine (`ghsl_county_export.py`), run 2026-11-05
+One task: GHSL built-up km² and population summed per county for epochs
+2005/2010/2015/2020. It ran on Earth Engine project **`cse472-project-2`**, now
+the script's default. `flood-513221` refuses this account (no IAM role). The
+file is in `data/gee_ghsl39167/ghsl_39167.csv` (20 rows).
+
+```
+python yana_workspace/ghsl_county_export.py
+python yana_workspace/build_county_panel.py --w-dir out/prism_39167 --out-dir yana_workspace/data --ghsl data/gee_ghsl39167
+```
+
+- **Panel:** `--ghsl` adds `built_share` and `log_population`, interpolated
+  between epochs, held flat after 2020 and lagged one year like NLCD. The
+  panels in `yana_workspace/data/` are now built with it (no missing values).
+  Without `--ghsl` the output matches the earlier panel.
+- **Check:** GHSL population matches the census. Washington ≈ 62k, Athens ≈ 65k,
+  Monroe, Morgan and Noble ≈ 15k each.
+- **Variation:** exposure barely changes within a county over 2010–2023, so it
+  only differs between the 5 counties. The county-level inputs also correlate
+  0.83–0.98 with each other (`built_share`, `log_population`, `impervious_mean`,
+  `land_km2`). With 5 counties, at most about 2 of them can enter.
+
+Pooled model, test 2019–2023, with exposure in place of the county indicators:
+
+| Model | ROC-AUC | PR-AUC | Brier skill |
+|---|---|---|---|
+| Own hazard, no county indicators | 0.84 | 0.53 | +0.09 |
+| Own hazard + `log_population` + `hand_lt5_share` | 0.89 | 0.69 | +0.23 |
+| Own hazard + county indicators | 0.91 | 0.71 | +0.25 |
+
+- **Exposure explains most of why counties differ.** The two exposure inputs
+  recover most of what the 4 county indicators add.
+- **Part 1 coefficients** (standardized): population +0.64 and floodplain
+  share +0.50 on the chance of damage. In part 2 (the amount) both are ≈ 0.
+- **Caveat:** this rests on 5 counties. Population also stands in for
+  reporting: bigger counties have more property and more people to report
+  damage. The data can't separate those.
+
+### Earth Engine app (`gee_exposure_app.js`)
+- Code Editor script with 6 exposure heatmaps (GHSL built-up and population,
+  WorldPop, NLCD impervious, MERIT HAND < 5 m, JRC surface water), a year slider
+  and a legend. Click a county to get its mean.
+- Mirrored to the Earth Engine script repo
+  `users/ezheng3/flood_impact_forecasting` (file `gee_exposure_app`). Local clone:
+  `flood_impact_forecasting/`, hidden from this repo through `.git/info/exclude`.
+- Optional model layers: upload `results/predictions_5county.csv` as a table
+  asset and set `PRED_ASSET`. That adds mean P(damage), expected damage per year
+  and SHELDUS observed damage months per county.
+- Syntax checked only. Dataset IDs and colour ranges still need checking in the
+  Code Editor.
+
+### Next
+1. Run the app in the Code Editor, fix any dataset or band errors, then publish
+   it (Apps → New App).
+2. ~~Run `ghsl_county_export.py`, rebuild with `--ghsl`, and refit the pooled
+   model.~~ Done 2026-11-05 (see above).
+3. Upload `predictions_5county.csv` to project `cse472-project-2` and set
+   `PRED_ASSET`.
+4. Decide with the team whether to keep the neighbour question (null result
+   above) or switch to an upstream-basin index.
