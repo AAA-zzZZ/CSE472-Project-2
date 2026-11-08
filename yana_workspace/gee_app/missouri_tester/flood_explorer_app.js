@@ -3,7 +3,7 @@
 // Explore the model's input data (PRISM, ERA5-Land, GHSL, NLCD, terrain) and its predictions.
 // Paste into the Earth Engine Code Editor (https://code.earthengine.google.com) and press Run.
 //
-// Setup: upload yana_workspace/gee_app/mo_flood_app_table.csv as a table asset, then make sure
+// Setup: upload yana_workspace/gee_app/missouri_tester/mo_flood_app_table.csv as a table asset, then make sure
 // ASSET_ID below matches where you saved it.
 
 var ASSET_ID = 'projects/flood-513221/assets/mo_flood_app_table';

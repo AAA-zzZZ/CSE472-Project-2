@@ -5,10 +5,10 @@ Fits the Missouri LightGBM hurdle exactly as reduced_benchmark.py does (2000-201
 chosen on 2000-2012 -> 2013-2016), predicts the 2017-2023 test years, and checks the scores against
 results/missouri_prism/scores.csv.
 
-Output: yana_workspace/gee_app/mo_flood_app_table.csv (115 counties x 84 months)
+Output: yana_workspace/gee_app/missouri_tester/mo_flood_app_table.csv (115 counties x 84 months)
 Run from the repository root:
     pip install lightgbm scikit-learn
-    python yana_workspace/gee_app/build_app_table.py
+    python yana_workspace/gee_app/missouri_tester/build_app_table.py
 """
 
 import os
@@ -21,7 +21,7 @@ sys.path.insert(0, os.getcwd())
 import reduced_benchmark as rb  # noqa: E402
 
 STATE = "MO"
-OUT = "yana_workspace/gee_app/mo_flood_app_table.csv"
+OUT = "yana_workspace/gee_app/missouri_tester/mo_flood_app_table.csv"
 TOP_N = 6      # top 5% of 115 counties, as in the scores
 # the exact inputs of the model, kept in the units the model sees
 INPUTS = ["p_month", "rx5_rl_ratio", "snowmelt_mm", "frost_days", "sm_root_pct", "swe_mm",
