@@ -55,6 +55,8 @@ GLM_INPUTS = ["log_housing_units", "urban_share", "impervious_mean", "water_shar
 # 1. data
 # ---------------------------------------------------------------
 data = pd.read_csv(PANEL, dtype={"GEOID": str})
+# PRISM starts 2000-01-01, so January 2000 has no previous-month rain index
+data = data.dropna(subset=["spi1_prev"]).reset_index(drop=True)
 data["state"] = data["GEOID"].str[:2].map(STATES)
 for col in ["p_month", "swe_mm", "snowmelt_mm", "snowmelt_prev_mm"]:
     data["log_" + col] = np.log1p(data[col].clip(lower=0))
