@@ -2,7 +2,22 @@
 
 This list covers the **reduced PRISM refits**: the GLM and LightGBM hurdle models on 12 inputs
 plus calendar month, and state in the Midwest run. It was traced on 2026-11-08 from the file
-reads and writes in each script. It is a list only, and no files were moved or deleted for it.
+reads and writes in each script, and reflects commit `ff53ea1`. It is a list only, and no files
+were moved or deleted for it.
+
+## What changed for the PRISM refit
+
+| File or folder | Change |
+|---|---|
+| `model_panel.csv`, `panel_county_month.csv` | **Rebuilt on PRISM.** The NOAA versions are `*_noaa.csv` |
+| `data/gee_prism_midwest/`, `data/gee_ghsl/` | **Renamed** from `data/gee_midwest/` and `data/gee_ghls/` |
+| `reduced_benchmark.py` | **New.** Fits and scores the reduced models. Reads `model_panel.csv` by default |
+| `yana_workspace/temp_merge_panel.py` | **New and temporary.** Replaces `merge_panel.py` for PRISM and adds GHSL |
+| `out/prism_midwest/` | **New.** PRISM rain indices and 2000–2009 thresholds |
+| `results/midwest_prism/`, `results/missouri_prism/` | **New.** Refit results |
+| `results/hurdle_scores.csv`, `results/model_comparison.csv` | **Rewritten** on the PRISM panel |
+| `hurdle_model.py`, `model_comparison.py` | **Edited.** Both skip January 2000 |
+| `results/reduced_noaa_*` | **Deleted.** Replaced by the PRISM results |
 
 ## Quick view
 
@@ -102,9 +117,10 @@ and `log_housing_units`, so they do not match the reduced refits. Both now skip 
 
 | File or folder | Note |
 |---|---|
-| `maps.py`, `maps/`, `data/counties_midwest.geojson` | Maps only |
+| `maps.py`, `maps/` | Maps only |
+| `data/counties_midwest.geojson` | Maps, plus the one-off spatial test in `HANDOFF4.md`. Not read by the refits |
 | `yana_workspace/build_county_panel.py`, `neighbour_model.py`, `prism_county_export.py`, `ghsl_county_export.py`, `gee_exposure_app.js` | Earlier 5-county Ohio design |
 | `yana_workspace/data/`, `yana_workspace/results/` | Outputs of that 5-county design |
 | `data/gee_prism39167/`, `data/gee_ghsl39167/`, `out/prism_39167/` | Single-county and 5-county PRISM and GHSL files |
 | `yana_workspace/flood_model_variable_tree.*` | Diagram of the variables |
-| `docs/`, `HANDOFF.md`, `yana_workspace/HANDOFF2.md`, `yana_workspace/HANDOFF3.md`, `SHELDUS_Data_Documentation.pdf`, `Data_Collection_and_Panel_Dataset (1).docx` | Documentation |
+| `docs/`, `HANDOFF.md`, `yana_workspace/HANDOFF2.md`, `yana_workspace/HANDOFF3.md`, `yana_workspace/HANDOFF4.md`, `SHELDUS_Data_Documentation.pdf`, `Data_Collection_and_Panel_Dataset (1).docx` | Documentation |
