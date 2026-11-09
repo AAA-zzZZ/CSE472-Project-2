@@ -14,19 +14,25 @@ Design (data_route_plan_summary.pdf, recommended Route 2):
   * --state fits that state's counties only, with the same model settings. State is then
     constant, so it drops out of both models.
 
-Input : model_panel.csv, the PRISM panel from yana_workspace/temp_merge_panel.py
+Input : model_panel.csv, the PRISM panel from merge_panel.py (with ghsl_features.py for
+        log_built_surface and openfema_features.py for the optional OpenFEMA columns)
 Output, in --out-dir:
         scores.csv     validation and test scores
         glm_coefs.csv  GLM coefficients per 1 std of each input
         log.txt        everything printed here
 
-OpenFEMA placeholder: --openfema adds nfip_policies_per_hu and buyouts_cum. Off by default.
-See data/openfema/README.md for how to supply them.
+OpenFEMA: --openfema adds nfip_policies_per_hu and buyouts_cum; --openfema buyouts adds
+buyouts_cum only (NFIP policies start in 2009, so they are missing for most training years).
+Off by default. Build the tables with openfema_features.py.
+
+--score-state MO fits all 12 states (state is an input) and scores Missouri's counties only:
+about 7,600 training damage months instead of 590.
 
 Usage:
     pip install lightgbm scikit-learn
     python reduced_benchmark.py --out-dir results/midwest_prism
     python reduced_benchmark.py --state MO --out-dir results/missouri_prism
+    python reduced_benchmark.py --score-state MO --out-dir results/missouri_pooled
     python reduced_benchmark.py --panel model_panel_noaa.csv --exposure log_housing_units --out-dir <folder>
 """
 
@@ -77,7 +83,7 @@ class Tee:
             s.flush()
 
 
-def load(path, use_openfema, state, exposure):
+def load(path, openfema_inputs, state, exposure):
     data = pd.read_csv(path, dtype={"GEOID": str})
     data["state"] = data["GEOID"].str[:2].map(STATES)
     if state:
@@ -92,13 +98,13 @@ def load(path, use_openfema, state, exposure):
     tree = [exposure if c == DEFAULT_EXPOSURE else c for c in TREE_INPUTS]
     if state:
         tree.remove("state_code")
-    if use_openfema:
-        absent = [c for c in OPENFEMA_INPUTS if c not in data]
+    if openfema_inputs:
+        absent = [c for c in openfema_inputs if c not in data]
         if absent:
             raise SystemExit(f"--openfema: {absent} not in {path}. Rebuild the panel with "
                              "merge_panel.py after adding the data/clean/ tables.")
-        glm += OPENFEMA_INPUTS
-        tree += OPENFEMA_INPUTS
+        glm += openfema_inputs
+        tree += openfema_inputs
     # the GLM cannot take missing values, and filling them is a choice for the team to make
     # (a county with no buyouts is a zero; a year before NFIP records begin is unknown)
     missing = data[sorted(set(glm + tree))].isna()
@@ -229,35 +235,50 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--panel", default="model_panel.csv")
     ap.add_argument("--state", help="fit one state's counties only, e.g. MO")
+    ap.add_argument("--score-state", help="fit all 12 states but score one state's counties only, e.g. MO")
     ap.add_argument("--exposure", default=DEFAULT_EXPOSURE, choices=[DEFAULT_EXPOSURE, "log_housing_units"])
-    ap.add_argument("--openfema", action="store_true", help="add the OpenFEMA inputs")
+    ap.add_argument("--openfema", nargs="?", const="all", choices=["all", "buyouts"],
+                    help="add the OpenFEMA inputs: all (NFIP policies and buyouts) or buyouts only, "
+                         "since NFIP records start in 2009")
     ap.add_argument("--out-dir", required=True)
     args = ap.parse_args()
+    openfema_inputs = {None: [], "all": OPENFEMA_INPUTS, "buyouts": ["buyouts_cum"]}[args.openfema]
+    if args.state and args.score_state:
+        ap.error("use --state (fit and score one state) or --score-state (fit all, score one), not both")
+    if args.score_state and args.score_state not in STATES.values():
+        ap.error(f"--score-state {args.score_state}: use one of {sorted(STATES.values())}")
 
     os.makedirs(args.out_dir, exist_ok=True)
     log_file = open(os.path.join(args.out_dir, "log.txt"), "w", encoding="utf-8")
     sys.stdout = Tee(sys.__stdout__, log_file)
     pd.set_option("display.width", 220)
 
-    data, glm_inputs, tree_inputs = load(args.panel, args.openfema, args.state, args.exposure)
+    data, glm_inputs, tree_inputs = load(args.panel, openfema_inputs, args.state, args.exposure)
     train = data[data["split"] == "train"].reset_index(drop=True)
     test = data[data["split"] == "test"].reset_index(drop=True)
     fit_part = train[train["year"] <= 2012].reset_index(drop=True)
     valid_part = train[train["year"] >= 2013].reset_index(drop=True)
-    print(f"panel: {args.panel}, state: {args.state or 'all'}, {data['GEOID'].nunique()} counties, "
-          f"exposure: {args.exposure}, OpenFEMA inputs: {args.openfema}")
-    for name, d in [("train", train), ("  fit", fit_part), ("  validation", valid_part), ("test", test)]:
+    # scored rows: every fitted county, or with --score-state only that state's counties. Models are
+    # always fitted on all rows; LightGBM still early-stops on all of valid_part.
+    valid_eval = valid_part
+    if args.score_state:
+        valid_eval = valid_part[valid_part["state"] == args.score_state].reset_index(drop=True)
+        test = test[test["state"] == args.score_state].reset_index(drop=True)
+    print(f"panel: {args.panel}, state: {args.state or 'all'}, scored: {args.score_state or 'all fitted'}, "
+          f"{data['GEOID'].nunique()} counties, exposure: {args.exposure}, OpenFEMA inputs: {args.openfema}")
+    for name, d in [("train", train), ("  fit", fit_part), ("  validation", valid_part),
+                    ("  validation, scored", valid_eval), ("test, scored", test)]:
         print(f"{name}: {d['year'].min()}-{d['year'].max()}, {len(d):,} county-months, "
               f"{int(d['has_damage'].sum()):,} damage months ({d['has_damage'].mean():.2%})")
 
     # ------ settings, from 2000-2012 -> 2013-2016 only ------
-    vy, vpos = valid_part["has_damage"].to_numpy(), (valid_part["has_damage"] == 1).to_numpy()
+    vy, vpos = valid_eval["has_damage"].to_numpy(), (valid_eval["has_damage"] == 1).to_numpy()
     rows = []
     for lam in RIDGE_GRID:
-        p, mu, _, _, _ = glm_hurdle(fit_part, valid_part, glm_inputs, lam, lam)
+        p, mu, _, _, _ = glm_hurdle(fit_part, valid_eval, glm_inputs, lam, lam)
         pc = np.clip(p, 1e-9, 1 - 1e-9)
         rows.append({"ridge": lam, "log loss": -np.mean(vy * np.log(pc) + (1 - vy) * np.log(1 - pc)),
-                     "MAE, damaged": np.abs(valid_part[TARGET].to_numpy()[vpos] - mu[vpos]).mean()})
+                     "MAE, damaged": np.abs(valid_eval[TARGET].to_numpy()[vpos] - mu[vpos]).mean()})
     grid = pd.DataFrame(rows).set_index("ridge")
     ridge1, ridge2 = grid["log loss"].idxmin(), grid["MAE, damaged"].idxmin()
     print(f"\nGLM ridge search on 2013-2016:\n{grid.round(4).to_string()}")
@@ -266,13 +287,13 @@ def main():
     table = {}
 
     # ------ validation: compare designs here ------
-    base = climatology(fit_part, valid_part)
+    base = climatology(fit_part, valid_eval)
     brier = np.mean((base[0] - vy) ** 2)
-    table[("validation 2013-2016", "baseline: county rate")] = scores(valid_part, *base, brier)
-    p, mu, e, _, _ = glm_hurdle(fit_part, valid_part, glm_inputs, ridge1, ridge2)
-    table[("validation 2013-2016", "GLM hurdle")] = scores(valid_part, p, mu, e, brier)
-    p, mu, e, rounds, _ = lgb_hurdle(fit_part, valid_part, tree_inputs, valid_df=valid_part)
-    table[("validation 2013-2016", "LightGBM hurdle")] = scores(valid_part, p, mu, e, brier)
+    table[("validation 2013-2016", "baseline: county rate")] = scores(valid_eval, *base, brier)
+    p, mu, e, _, _ = glm_hurdle(fit_part, valid_eval, glm_inputs, ridge1, ridge2)
+    table[("validation 2013-2016", "GLM hurdle")] = scores(valid_eval, p, mu, e, brier)
+    p, mu, e, rounds, _ = lgb_hurdle(fit_part, valid_eval, tree_inputs, valid_df=valid_part)
+    table[("validation 2013-2016", "LightGBM hurdle")] = scores(valid_eval, p, mu, e, brier)
     print(f"LightGBM trees chosen on 2013-2016: part 1 {rounds[0]}, part 2 {rounds[1]}")
 
     # ------ final fits on 2000-2016, scored on 2017-2023 ------

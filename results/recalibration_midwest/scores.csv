@@ -1,0 +1,7 @@
+model,correction,ROC-AUC,PR-AUC,Brier skill,log loss,mean P / rate,AUC within month,top 5%: share of loss,top 5%: without largest month,top 5%: median month,"rank corr, year","MAE, damaged"
+GLM hurdle,none,0.8582,0.1833,0.1123,0.0911,1.5418,0.8278,0.5389,0.7101,0.3437,0.2534,0.8366
+GLM hurdle,fixed,0.8535,0.1786,0.1459,0.0893,0.9088,0.8251,0.5267,0.6944,0.3388,0.2598,0.8366
+GLM hurdle,rolling,0.8495,0.1756,0.1423,0.09,0.9511,0.8275,0.5396,0.7124,0.4102,0.2486,0.8366
+LightGBM hurdle,none,0.8824,0.233,0.1366,0.086,1.4783,0.8547,0.5855,0.7939,0.6533,0.2694,0.8175
+LightGBM hurdle,fixed,0.8789,0.2264,0.1735,0.0846,0.9089,0.8531,0.5773,0.7881,0.6377,0.2767,0.8175
+LightGBM hurdle,rolling,0.8772,0.2174,0.1648,0.0854,0.952,0.8575,0.5472,0.7461,0.4843,0.2676,0.8175

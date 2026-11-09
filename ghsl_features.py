@@ -9,7 +9,7 @@ import pandas as pd
 # yana_workspace/ghsl_export.py. the 5-year images are interpolated linearly to every
 # year; merge_panel.py joins year t - 1 to model year t.
 # output: data/clean/ghsl_county_year.csv with GEOID, year, built_m2
-GHSL_DIR = 'data/gee_ghls'
+GHSL_DIR = 'data/gee_ghsl'
 OUT_FILE = 'data/clean/ghsl_county_year.csv'
 START, END = 1999, 2023
 

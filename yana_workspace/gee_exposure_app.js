@@ -25,8 +25,9 @@ function setState(fips) {
 }
 
 // ---------- Model predictions (optional) ----------
-// Run `python state_model.py --state 29`, upload results/predictions_MO.csv as a table asset
-// (Assets > NEW > CSV file), then put its ID here, e.g. 'projects/flood-513221/assets/predictions_MO'.
+// Upload yana_workspace/gee_app/missouri_tester/mo_flood_app_table.csv (from build_app_table.py, the
+// same table the flood_explorer_app.js app reads) as a table asset (Assets > NEW > CSV file), then put
+// its ID here, e.g. 'projects/flood-513221/assets/mo_flood_app_table'.
 // Leave null to show the gridded layers only. Predictions cover the test years 2017-2023.
 var PRED_ASSET = null;
 
@@ -55,9 +56,8 @@ function countyValue(y, m, column) {
   var rows = ee.FeatureCollection(PRED_ASSET)
     .filter(ee.Filter.eq('year', y)).filter(ee.Filter.eq('month', m));
   return counties.map(function (c) {
-    var g = ee.String(c.get('GEOID'));
-    // the CSV upload may store GEOID as a number, so match either form
-    var row = rows.filter(ee.Filter.or(ee.Filter.eq('GEOID', g), ee.Filter.eq('GEOID', ee.Number.parse(g))));
+    // the table keys counties as text 'G' + GEOID, so Earth Engine does not read them as numbers
+    var row = rows.filter(ee.Filter.eq('key', ee.String('G').cat(c.get('GEOID'))));
     return c.set('v', ee.Algorithms.If(row.size().gt(0), row.first().get(column), -1));
   }).filter(ee.Filter.gte('v', 0)).reduceToImage(['v'], ee.Reducer.first()).rename('v');
 }
@@ -145,14 +145,14 @@ if (PRED_ASSET) {
   };
   LAYERS['Model: P(damage) this month'] = {
     image: function (y, m) { return countyValue(y, m, 'p_damage'); },
-    vis: {min: 0, max: 0.5}, note: 'LightGBM hurdle, trained 2000-2016 (state_model.py)', scale: 500, table: true
+    vis: {min: 0, max: 0.5}, note: 'LightGBM hurdle, trained 2000-2016 (build_app_table.py)', scale: 500, table: true
   };
   LAYERS['Model: expected damage this month ($)'] = {
-    image: function (y, m) { return countyValue(y, m, 'expected_dmg'); },
+    image: function (y, m) { return countyValue(y, m, 'expected_loss'); },
     vis: {min: 0, max: 500000}, note: 'P(damage) x expected amount, 2024 $', scale: 500, table: true
   };
   LAYERS['SHELDUS: observed property damage ($)'] = {
-    image: function (y, m) { return countyValue(y, m, 'PropertyDmgADJ'); },
+    image: function (y, m) { return countyValue(y, m, 'actual_loss'); },
     vis: {min: 0, max: 500000}, note: 'Reported property damage, 2024 $ (the outcome)', scale: 500, table: true
   };
 }
@@ -231,7 +231,7 @@ Map.onClick(function (coords) {
   if (PRED_ASSET) {
     var row = ee.FeatureCollection(PRED_ASSET)
       .filter(ee.Filter.eq('year', yearSlider.getValue())).filter(ee.Filter.eq('month', monthSlider.getValue()))
-      .filter(ee.Filter.or(ee.Filter.eq('GEOID', hit.get('GEOID')), ee.Filter.eq('GEOID', ee.Number.parse(ee.String(hit.get('GEOID'))))));
+      .filter(ee.Filter.eq('key', ee.String('G').cat(hit.get('GEOID'))));
     info.pred = ee.Algorithms.If(row.size().gt(0), ee.Feature(row.first()).toDictionary(), null);
   }
   ee.Dictionary(info).evaluate(function (r, err) {
@@ -239,8 +239,8 @@ Map.onClick(function (coords) {
     var text = r.name + ' County (' + r.geoid + ') mean: ' + Number(r.mean).toFixed(2);
     if (r.pred) {
       text += '\nP(damage) ' + Number(r.pred.p_damage).toFixed(3) +
-              ', expected $' + Math.round(r.pred.expected_dmg).toLocaleString() +
-              ', observed $' + Math.round(r.pred.PropertyDmgADJ).toLocaleString();
+              ', expected $' + Math.round(r.pred.expected_loss).toLocaleString() +
+              ', observed $' + Math.round(r.pred.actual_loss).toLocaleString();
     }
     clickLabel.setValue(text);
   });

@@ -6,6 +6,11 @@ created in these sessions is in `yana_workspace/`. **For the latest status, star
 at [Session 2026-11-05](#session-2026-11-05-panel-rebuilt-neighbour-model-gee-app)
 at the end of this file.**
 
+> **Update 2026-11-09:** the 5-county Washington County design is superseded. The scope is now
+> Missouri, with data for all 12 Midwest states (`HANDOFF3.md`, `HANDOFF4.md`), and outside data
+> is allowed again if justified. `gee_exposure_app.js` was rewritten for the new scope. Current
+> status: the "Latest session" section of `../HANDOFF.md`.
+
 **Status (2026-11-04):** the input list was narrowed to 12 inputs + 2 controls,
 and the project pivoted to two mentor rules: (1) every input must come from
 Google Earth Engine, and (2) the study focuses on one county and its neighbours.

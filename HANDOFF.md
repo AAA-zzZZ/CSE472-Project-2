@@ -3,6 +3,230 @@
 Read this first when picking up the project in a new session. It summarizes the
 work through 2026-11-01 on branch `enci-dev` (pull request #1 into `main`).
 
+**Newer work:** read [Latest session (2026-11-08 to 2026-11-09)](#latest-session-2026-11-08-to-2026-11-09)
+below, then `yana_workspace/HANDOFF2.md` to `HANDOFF4.md` (the teammate's sessions: 5-county
+design, Route 2 with PRISM, the PRISM refit). The sections after the latest session describe the
+original NOAA design and are kept as history.
+
+## Latest session (2026-11-08 to 2026-11-09)
+
+Scope is now **Missouri** (state FIPS 29, 115 counties), with the data and the Midwest-wide runs
+kept for all 12 states. Inputs follow `yana_workspace/HANDOFF3.md` (PRISM rain with a 2000–2009
+baseline, GHSL exposure). Train 2000–2016, test 2017–2023. The mentor now allows data from
+outside Earth Engine if each source and variable is justified.
+
+### Where things stand (summary)
+
+| Topic | Decision or result | Status |
+|---|---|---|
+| Main model for Missouri | LightGBM hurdle trained on all 12 states, scored on Missouri (`reduced_benchmark.py --score-state MO`); GLM on Missouri only | Chosen on 2013–2016 validation |
+| Over-prediction | Rolling per-state recalibration (`recalibrate.py`): Missouri LightGBM 1.61× → 0.99× actual damage months | Done; not yet in the app table |
+| Chance of damage | Works: test ROC-AUC 0.90–0.91 vs 0.75 for county history | Report as the main result |
+| Dollars and rank | Weak (within 2× of recorded loss in 24% of damage months); mostly a SHELDUS problem (split multi-county losses) | Report as indicative |
+| OpenFEMA | Pulled and built; buyouts add nothing; NFIP only usable 2010+ (Equation 4) | Done |
+| Variable documentation | `docs/flood_variable_reference.xlsx` updated to PRISM, GHSL and OpenFEMA | Done; `reduced_variables.md` still old |
+| Equation 4, BYM2, loss-data checks | Not started | Next |
+
+### Files added or changed
+
+| File | What it is | Committed |
+|---|---|---|
+| `ghsl_features.py` | New: interpolates the 5-year GHSL images to yearly `built_m2` in `data/clean/ghsl_county_year.csv` | `9cdc75f`; path fix to `data/gee_ghsl` not committed |
+| `merge_panel.py` | Joins `ghsl_county_year.csv` (one-year lag) and adds `log_built_surface`; default rain climate is now PRISM 2000–2009. Replaces `yana_workspace/temp_merge_panel.py` (identical 55 columns) | `9cdc75f`; PRISM default not committed |
+| `yana_workspace/temp_merge_panel.py` | **Deleted** (replaced by `merge_panel.py` + `ghsl_features.py`) | Deletion not committed |
+| `state_model.py`, `results/state_MO_scores.csv`, `results/predictions_MO.csv` | **Deleted.** Was a one-state hurdle script plus a 12-state LightGBM; replaced by `reduced_benchmark.py` (`--state`, `--score-state`). Its results are kept in the table below | Deletion not committed |
+| `yana_workspace/gee_exposure_app.js` | Rewritten Earth Engine app: any of the 12 states (Missouri default), year and month; one layer per final input; model layers from the teammate's `mo_flood_app_table.csv` uploaded as a table asset. Syntax-checked, not yet run in the Code Editor | `9cdc75f`; table switch not committed |
+| `openfema_features.py` | New: builds `data/clean/nfip_policies_county_year.csv` and `hma_county_year.csv` from OpenFEMA downloads | No |
+| `reduced_benchmark.py` | `--openfema buyouts` adds buyouts only; plain `--openfema` still adds NFIP and buyouts. `--score-state MO` fits all 12 states and scores Missouri only (`results/missouri_pooled/`) | No |
+| `docs/flood_variable_reference.xlsx` | Replaces `docs/variable_reference.xlsx` (deleted). Updated to Route 2: PRISM source and 2000–2009 baseline for W and C; new row for `built_m2, log_built_surface` (GHSL); OpenFEMA rows filled in (NFIP v3, current HMA datasets, coverage gaps); new column K for the final model's inputs; Datasets, Blocks and Notes sheets updated | No |
+| `recalibrate.py` | New: per-state recalibration (fix for over-prediction), scored on 2019–2023 | No |
+| `results/*_prism_buyouts/`, `results/recalibration_*/`, `results/missouri_pooled/` | Scores and logs from the runs below | No |
+| `data/clean/nfip_policies_county_year.csv`, `data/clean/hma_county_year.csv` | OpenFEMA tables from `openfema_features.py` | No |
+| `.gitignore` | Ignores `data/openfema/raw/` (4 GB) and `model_panel_openfema.csv` (no longer needed) | No |
+| `data/openfema/README.md` | Rewritten: download, build, coverage limits, results | No |
+
+### Missouri model: my run and the teammate's
+
+Both builds give the same panel. Only the LightGBM settings differ (teammate: 31 leaves, at least
+100 rows per leaf; `state_model.py`, since deleted: 15 leaves, 50/20 rows, monotone in rain). Test 2017–2023,
+174 damage months; "top 5%" = the share of loss in the top 6 counties each month, without the
+largest month:
+
+| Model | ROC-AUC | PR-AUC | Top 5% | MAE |
+|---|---|---|---|---|
+| Baseline | 0.748 | 0.066 | 0.124 | 0.966 |
+| GLM (both) | 0.895 | 0.238 | 0.478 | 0.781 |
+| LightGBM, teammate (`reduced_benchmark.py`) | 0.902 | 0.281 | 0.449 | 0.761 |
+| LightGBM, `state_model.py` | 0.906 | 0.270 | 0.236 | 0.731 |
+| LightGBM trained on 12 states, scored on Missouri (`state_model.py` settings) | 0.910 | 0.284 | 0.441 | 0.727 |
+
+- **Whether damage occurs works** (+0.15 ROC-AUC over the baseline, interval about +0.12 to
+  +0.20). The ROC-AUC differences between the LightGBM versions are within noise.
+- **Dollars are weak.** Expected loss is within 2× of the recorded loss in 24% of damage months.
+  Two months hold 82% of test loss: July 2022 (all of it caught in the top 6) and April 2017
+  (18% caught; a river flood that local rain misses).
+- **One state alone is too thin for the dollar part.** Use the teammate's settings or train on all
+  12 states. On 2013–2016 the GLM ranks dollars much better than LightGBM, so the dollar ranking
+  should come from the GLM or an average of the two (decide on 2013–2016, not on the test years).
+
+**12-state training, checked on 2013–2016** (`reduced_benchmark.py --score-state MO` against
+`--state MO`; Missouri's 182 validation damage months):
+
+| Model | Trained on | ROC-AUC | PR-AUC | Brier skill | Pred ÷ actual | AUC within month | Top 5% (all months) | Top 5% (without largest) | MAE |
+|---|---|---|---|---|---|---|---|---|---|
+| GLM | Missouri | 0.915 | 0.433 | 0.259 | 1.01 | 0.853 | 0.799 | 0.474 | 0.776 |
+| GLM | 12 states | 0.917 | 0.385 | 0.228 | 1.02 | 0.839 | 0.799 | 0.424 | 0.819 |
+| LightGBM | Missouri | 0.916 | 0.299 | 0.182 | 0.89 | 0.872 | 0.103 | 0.469 | 0.758 |
+| LightGBM | 12 states | 0.921 | 0.439 | 0.258 | 1.20 | 0.858 | 0.791 | 0.416 | 0.718 |
+
+Adopt 12-state training **for LightGBM** (better PR-AUC, Brier skill, dollar error, and it catches
+the largest validation month that the Missouri-only model missed); its slightly higher
+over-prediction is what recalibration fixes. **Keep the GLM on Missouri only**: pooling makes it
+worse on PR-AUC and dollars. The earlier test-year claim that 12-state training doubles the dollar
+ranking (0.44 vs 0.24) compared against the weaker `state_model.py` settings; against the
+teammate's Missouri-only LightGBM the test-year values are equal (0.452 vs 0.449).
+
+### OpenFEMA data (adaptation, A)
+
+The datasets first planned (NFIP Policies v2, HMA Mitigated Properties and Projects v4) were
+**removed by FEMA on 2026-10-15**. `openfema_features.py` uses the replacements (full details in
+`data/openfema/README.md`):
+
+| Table | Source | Coverage |
+|---|---|---|
+| `nfip_policies_county_year.csv`: policies in force on July 1 | NFIP Redacted Policies v3, bulk file `NfipPoliciesV3.parquet` (3.7 GB). The API is too slow for 3.7M Midwest rows | **No policy starts before 2009.** 2010–2022 complete; 1999–2009 left empty, not zero |
+| `hma_county_year.csv`: cumulative acquisitions and elevations | HMA Subapplications Project Site Inventories v1 (county, activity) joined to HMA Subapplications v2 (fiscal year, status) | **No funded sites 2005–2019** in the current FEMA data: 14,638 buyouts by 2022, almost all from the 1990s |
+
+Pull (FEMA refuses Python's downloader; curl or a browser works):
+
+```powershell
+New-Item -ItemType Directory -Force data/openfema/raw
+curl.exe -L -o data/openfema/raw/NfipPoliciesV3.parquet "https://www.fema.gov/about/reports-and-data/openfema/v3/NfipPoliciesV3.parquet"
+curl.exe -L -o data/openfema/raw/HmaSubapplicationsProjectSiteInventories.csv "https://www.fema.gov/api/open/v1/HmaSubapplicationsProjectSiteInventories.csv"
+curl.exe -L -o data/openfema/raw/HmaSubapplications.csv "https://www.fema.gov/api/open/v2/HmaSubapplications.csv"
+python openfema_features.py
+```
+
+Checks: Missouri has 24,537 policies in force in 2010 and 17,111 in 2022, Illinois about 48,000;
+compare with FEMA's published totals. 91% of HMA sites have no county code and are matched by
+county name; 19 of 14,906 funded sites could not be matched.
+
+**Buyouts add nothing** (`--openfema buyouts`, both regions). Validation 2013–2016 scores move by
+0.02 or less except one Midwest LightGBM top-5% value (0.671 to 0.721) that no other score
+supports; LightGBM ranks buyouts last (under 1% of gain). The GLM coefficient is slightly
+positive (+0.07 in Missouri): buyouts mark counties flooded in the 1990s, not protected ones
+(C → A confounding). **NFIP cannot enter the 2000–2016 model** (missing for model years
+2000–2010); use it in Equation 4 (2010–2023).
+
+### Recalibration (over-prediction)
+
+`recalibrate.py` shifts each state's log-odds so predicted damage months match observed ones:
+"fixed" is fitted on 2017–2018, "rolling" refits each year on the two years before it. Scored on
+2019–2023. Predicted ÷ actual damage months:
+
+| | Missouri GLM | Missouri LightGBM | Midwest GLM | Midwest LightGBM |
+|---|---|---|---|---|
+| No correction | 1.98 | 1.61 | 1.54 | 1.48 |
+| Fixed | 0.70 | 0.96 | 0.91 | 0.91 |
+| Rolling | 0.92 | 0.99 | 0.95 | 0.95 |
+
+- Midwest LightGBM Brier skill rises from 0.137 to 0.173; ROC-AUC and within-month AUC move by
+  under 0.01, because the shift does not reorder counties within a state.
+- **Rolling is the better default:** the fixed shift learns from two years and over-corrects small
+  states (South Dakota 0.16, Nebraska and Michigan about 0.5); rolling keeps every state within
+  0.39–1.31 and uses only past years.
+- Single years still swing (2021 is 1.6–2× too high, 2019 0.65×).
+- The Missouri LightGBM top-5% score jumps from 0.08 to 0.59 with the fixed shift. That is one
+  county in August 2023 entering the top 6; July 2022 holds 80% of 2019–2023 Missouri loss.
+  **Not a real gain.**
+
+### Loss data
+
+The teammate's conclusion (HANDOFF4) stands: the main limit is SHELDUS, especially multi-county
+losses split equally (42% of damage rows share another county's exact dollars). Options, none
+started:
+
+1. Train on all 12 states and score Missouri: **done** (`reduced_benchmark.py --score-state MO`);
+   adopted for LightGBM, not for the GLM (table above).
+2. Predict loss classes (none, < $100k, $100k–$1M, > $1M) instead of exact dollars, and flag split
+   losses (same dollars as other counties in the state and month) to down-weight them or score
+   them as one event.
+3. Check SHELDUS against **NFIP Claims v3** (`https://www.fema.gov/api/open/v3/NfipClaims`, 51,304
+   Missouri claims with date of loss and damage) or NOAA Storm Events. Claims are an outcome
+   check only, **never an input**, and only cover insured property.
+4. More years: 1985–1999 has 10,592 SHELDUS damage months (2000–2016 has 7,611). This needs no
+   new rain pull if the whole design switches to nClimGrid (on disk for 1951–2023; scored the same
+   as PRISM in HANDOFF3) with a 1951–1984 baseline; NLCD and GHSL would need small exports for
+   1985–1998. Do not mix PRISM and nClimGrid across years. Older SHELDUS dollars are rougher.
+
+### Rebuild commands (this session)
+
+The full rebuild from the Earth Engine and NOAA downloads, run from the repository root
+(`pip install lightgbm scikit-learn pyarrow` first):
+
+```powershell
+python data_clean.py; python housing_features.py; python build_monthly_panel.py
+python w_indices.py --input data/gee_prism_midwest --out-dir out/prism_midwest/ --base-start 2000 --base-end 2009 --model-start 2000 --model-end 2023
+python build_panel.py --era5 data/gee_era5 --nlcd data/gee_nlcd --terrain data/gee_terrain --w out/prism_midwest/w_county_month.csv --out panel_county_month.csv
+python census_features.py
+python ghsl_features.py
+python openfema_features.py        # optional; needs the downloads in data/openfema/raw/
+python merge_panel.py              # model_panel.csv: PRISM climate by default, every data/clean/ table
+python reduced_benchmark.py --out-dir results/midwest_prism
+python reduced_benchmark.py --state MO --out-dir results/missouri_prism
+python reduced_benchmark.py --score-state MO --out-dir results/missouri_pooled
+python reduced_benchmark.py --openfema buyouts --state MO --out-dir results/missouri_prism_buyouts
+python reduced_benchmark.py --openfema buyouts --out-dir results/midwest_prism_buyouts
+python recalibrate.py --state MO --out-dir results/recalibration_missouri
+python recalibrate.py --out-dir results/recalibration_midwest
+python yana_workspace/gee_app/missouri_tester/build_app_table.py
+```
+
+`merge_panel.py` now defaults to the PRISM 2000–2009 climate (`out/prism_midwest/`), so it
+replaces `yana_workspace/temp_merge_panel.py` (deleted; same 55 columns, checked identical).
+It joins every table in `data/clean/`, so `model_panel.csv` also carries the four OpenFEMA
+columns; the models use them only with `--openfema`. The separate `model_panel_openfema.csv` used
+for the buyout runs is no longer needed. For the NOAA panel, pass
+`--thresholds out/w_county_thresholds.csv`.
+
+### Caveats
+
+- **The test years have been scored many times** (route tests, two Missouri runs, buyouts,
+  recalibration on 2019–2023). Make every remaining choice on 2013–2016.
+- Two Earth Engine apps exist: `yana_workspace/gee_exposure_app.js` (input layers, any of the 12
+  states) and `yana_workspace/gee_app/missouri_tester/flood_explorer_app.js` (model outputs for
+  Missouri). Both read the same `mo_flood_app_table.csv`. Keep one or merge them.
+- GHSL interpolation lets a year draw on the next 5-year image (mild look-ahead).
+
+### Next steps
+
+1. Commit the uncommitted files above, including the deletion of `docs/variable_reference.xlsx`
+   (`git add -A docs/`). Tell the teammate first: `reduced_benchmark.py` is theirs.
+2. One pipeline: **done** (2026-11-09). `temp_merge_panel.py` and `state_model.py` are deleted;
+   `merge_panel.py` defaults to PRISM, and `reduced_benchmark.py --score-state` replaces the
+   12-state part of `state_model.py` (its monotone constraints were not carried over). Still to
+   decide with the teammate: one Earth Engine app.
+3. Add rolling recalibration to `reduced_benchmark.py --score-state` output and rebuild the app
+   table from the 12-state LightGBM (`yana_workspace/gee_app/missouri_tester/build_app_table.py`;
+   agree with the teammate first).
+4. Choose on 2013–2016 where the dollar ranking comes from: GLM, LightGBM or their average.
+   (Missouri-only vs 12-state training is decided: 12 states for LightGBM.)
+5. Ask the mentor (see below), then: loss classes and the split-loss flag; NFIP claims check.
+6. Equation 4 on 2010–2023 with NFIP policies as A, plus the confounding simulation (open);
+   BYM2 for Missouri in R-INLA (teammate, HANDOFF4).
+7. Update `reduced_variables.md` (describes the old setup). `data/openfema/README.md` is current
+   (rewritten 2026-11-09).
+8. Score the final models on 2017–2023 once, after all choices, and say in the report that the
+   test years were used for earlier design checks.
+
+**Open questions for the mentor:** Missouri as the scope, with LightGBM trained on all 12 states;
+training on 2000–2016 with the overlapping 2000–2009 baseline; OpenFEMA given its coverage gaps
+(buyouts as a reported null result, NFIP only in Equation 4); loss classes instead of exact
+dollars; NFIP claims as a check or a second outcome; whether chance of damage and rank, with
+indicative dollars, is an acceptable headline.
+
+## Original design (through 2026-11-01, history)
+
 **Status (2026-11-01):** the county-month data pipeline is built, merged and
 reproducible: rebuilding every output from the raw data gives byte-identical
 files. The modelling table `model_panel.csv` has the outcome, hazard, exposure,
@@ -104,10 +328,10 @@ Git-ignored: `model_data_monthly_panel.csv` (21 MB), `out/w_county_month.csv`
 
 ## Variables in `model_panel.csv`
 
-Full reference (every column plus planned variables: meaning, block, source,
-native resolution, aggregation, derivation, timing, scripts, model use and
-training-year statistics; plus datasets, exclusions and pipeline):
-`docs/variable_reference.xlsx`.
+Full reference (every column plus planned variables: definition, block, unit, source,
+aggregation, timing, script and model use; plus datasets, blocks and notes):
+`docs/flood_variable_reference.xlsx` (updated for the PRISM design on 2026-11-09; the table below
+is the original NOAA design).
 
 | Block | Columns | Source |
 |---|---|---|

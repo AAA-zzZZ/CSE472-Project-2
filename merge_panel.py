@@ -7,7 +7,9 @@ One row per county per month, 2000-2023 (1,055 counties x 288 months = 303,840 r
 Inputs:
   --inputs      panel_county_month.csv        from build_panel.py (W, X, terrain)
   --outcome     model_data_monthly_panel.csv  from build_monthly_panel.py (Y, census housing)
-  --thresholds  out/w_county_thresholds.csv   from w_indices.py (C: 1951-1999 rain climate)
+  --thresholds  out/prism_midwest/w_county_thresholds.csv
+                                              from w_indices.py (C: PRISM 2000-2009 rain climate;
+                                              out/w_county_thresholds.csv is the NOAA 1951-1999 one)
   --clean-dir   data/clean/                   optional tables from the data-collection guide;
                                               each is joined if its file exists:
       census_county_year.csv         GEOID, year, housing_units, population, median_value, ...
@@ -21,14 +23,15 @@ Output:
   model_panel.csv  (git-ignored; rebuild with this script)
 
 Usage:
-    python merge_panel.py --inputs panel_county_month.csv --outcome model_data_monthly_panel.csv \\
-        --thresholds out/w_county_thresholds.csv --clean-dir data/clean --out model_panel.csv
+    python merge_panel.py               # PRISM panel with every data/clean/ table, model_panel.csv
+    python merge_panel.py --thresholds out/w_county_thresholds.csv --out model_panel_noaa.csv
 
 Leakage rules:
   * SHELDUS supplies only the outcome columns; nothing derived from losses is an input.
   * Yearly tables are saved for their own year; this script joins year t - 1 to model year t,
     so do not shift years before saving them.
-  * The C columns come from 1951-1999 daily rainfall only, before the model years.
+  * The C columns come from 2000-2009 daily rainfall only (PRISM): before the test years, but
+    overlapping the training years.
 """
 
 import argparse
@@ -99,7 +102,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--inputs", default="panel_county_month.csv")
     ap.add_argument("--outcome", default="model_data_monthly_panel.csv")
-    ap.add_argument("--thresholds", default="out/w_county_thresholds.csv")
+    ap.add_argument("--thresholds", default="out/prism_midwest/w_county_thresholds.csv")
     ap.add_argument("--clean-dir", default="data/clean")
     ap.add_argument("--out", default="model_panel.csv")
     args = ap.parse_args()
@@ -123,11 +126,11 @@ def main():
     print(f"outcome: {panel['has_damage'].sum():,} damage months ({panel['has_damage'].mean():.1%}), "
           f"${panel['PropertyDmgADJ'].sum() / 1e9:.1f}B of property loss")
 
-    # C: rain climate from the 1951-1999 baseline
+    # C: rain climate from the baseline years (PRISM 2000-2009 by default)
     clim = read(args.thresholds).rename(columns=C_NAMES)
     check_counties(clim, os.path.basename(args.thresholds), counties)
     panel = panel.merge(clim, on="GEOID", how="left")
-    print(f"climate (C): {list(C_NAMES.values())}")
+    print(f"climate (C) from {args.thresholds}: {list(C_NAMES.values())}")
 
     # optional tables from the data-collection guide
     print(f"tables in {args.clean_dir}:")
