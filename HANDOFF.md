@@ -31,19 +31,19 @@ outside Earth Engine if each source and variable is justified.
 
 | File | What it is | Committed |
 |---|---|---|
-| `ghsl_features.py` | New: interpolates the 5-year GHSL images to yearly `built_m2` in `data/clean/ghsl_county_year.csv` | `9cdc75f`; path fix to `data/gee_ghsl` not committed |
-| `merge_panel.py` | Joins `ghsl_county_year.csv` (one-year lag) and adds `log_built_surface`; default rain climate is now PRISM 2000–2009. Replaces `yana_workspace/temp_merge_panel.py` (identical 55 columns) | `9cdc75f`; PRISM default not committed |
-| `yana_workspace/temp_merge_panel.py` | **Deleted** (replaced by `merge_panel.py` + `ghsl_features.py`) | Deletion not committed |
-| `state_model.py`, `results/state_MO_scores.csv`, `results/predictions_MO.csv` | **Deleted.** Was a one-state hurdle script plus a 12-state LightGBM; replaced by `reduced_benchmark.py` (`--state`, `--score-state`). Its results are kept in the table below | Deletion not committed |
-| `yana_workspace/gee_exposure_app.js` | Rewritten Earth Engine app: any of the 12 states (Missouri default), year and month; one layer per final input; model layers from the teammate's `mo_flood_app_table.csv` uploaded as a table asset. Syntax-checked, not yet run in the Code Editor | `9cdc75f`; table switch not committed |
-| `openfema_features.py` | New: builds `data/clean/nfip_policies_county_year.csv` and `hma_county_year.csv` from OpenFEMA downloads | No |
-| `reduced_benchmark.py` | `--openfema buyouts` adds buyouts only; plain `--openfema` still adds NFIP and buyouts. `--score-state MO` fits all 12 states and scores Missouri only (`results/missouri_pooled/`) | No |
-| `docs/flood_variable_reference.xlsx` | Replaces `docs/variable_reference.xlsx` (deleted). Updated to Route 2: PRISM source and 2000–2009 baseline for W and C; new row for `built_m2, log_built_surface` (GHSL); OpenFEMA rows filled in (NFIP v3, current HMA datasets, coverage gaps); new column K for the final model's inputs; Datasets, Blocks and Notes sheets updated | No |
-| `recalibrate.py` | New: per-state recalibration (fix for over-prediction), scored on 2019–2023 | No |
-| `results/*_prism_buyouts/`, `results/recalibration_*/`, `results/missouri_pooled/` | Scores and logs from the runs below | No |
-| `data/clean/nfip_policies_county_year.csv`, `data/clean/hma_county_year.csv` | OpenFEMA tables from `openfema_features.py` | No |
-| `.gitignore` | Ignores `data/openfema/raw/` (4 GB) and `model_panel_openfema.csv` (no longer needed) | No |
-| `data/openfema/README.md` | Rewritten: download, build, coverage limits, results | No |
+| `ghsl_features.py` | New: interpolates the 5-year GHSL images to yearly `built_m2` in `data/clean/ghsl_county_year.csv` | `9cdc75f`; path fix in `3f8c6b1` |
+| `merge_panel.py` | Joins `ghsl_county_year.csv` (one-year lag) and adds `log_built_surface`; default rain climate is now PRISM 2000–2009. Replaces `yana_workspace/temp_merge_panel.py` (identical 55 columns) | `9cdc75f`; PRISM default in `3f8c6b1` |
+| `yana_workspace/temp_merge_panel.py` | **Deleted** (replaced by `merge_panel.py` + `ghsl_features.py`) | Deleted in `3f8c6b1` |
+| `state_model.py`, `results/state_MO_scores.csv`, `results/predictions_MO.csv` | **Deleted.** Was a one-state hurdle script plus a 12-state LightGBM; replaced by `reduced_benchmark.py` (`--state`, `--score-state`). Its results are kept in the table below | Deleted in `3f8c6b1` |
+| `yana_workspace/gee_exposure_app.js` | Rewritten Earth Engine app: any of the 12 states (Missouri default), year and month; one layer per final input; model layers from the teammate's `mo_flood_app_table.csv` uploaded as a table asset. Syntax-checked, not yet run in the Code Editor | `9cdc75f`; table switch in `3f8c6b1` |
+| `openfema_features.py` | New: builds `data/clean/nfip_policies_county_year.csv` and `hma_county_year.csv` from OpenFEMA downloads | `3f8c6b1` |
+| `reduced_benchmark.py` | `--openfema buyouts` adds buyouts only; plain `--openfema` still adds NFIP and buyouts. `--score-state MO` fits all 12 states and scores Missouri only (`results/missouri_pooled/`) | `3f8c6b1` |
+| `docs/flood_variable_reference.xlsx` | Replaces `docs/variable_reference.xlsx` (deleted). Updated to Route 2: PRISM source and 2000–2009 baseline for W and C; new row for `built_m2, log_built_surface` (GHSL); OpenFEMA rows filled in (NFIP v3, current HMA datasets, coverage gaps); new column K for the final model's inputs; Datasets, Blocks and Notes sheets updated | `3f8c6b1` |
+| `recalibrate.py` | New: per-state recalibration (fix for over-prediction), scored on 2019–2023 | `3f8c6b1` |
+| `results/*_prism_buyouts/`, `results/recalibration_*/`, `results/missouri_pooled/` | Scores and logs from the runs below | `3f8c6b1` |
+| `data/clean/nfip_policies_county_year.csv`, `data/clean/hma_county_year.csv` | OpenFEMA tables from `openfema_features.py` | `3f8c6b1` |
+| `.gitignore` | Ignores `data/openfema/raw/` (4 GB) and `model_panel_openfema.csv` (no longer needed) | `3f8c6b1` |
+| `data/openfema/README.md` | Rewritten: download, build, coverage limits, results | `3f8c6b1` |
 
 ### Missouri model: my run and the teammate's
 
@@ -200,8 +200,9 @@ for the buyout runs is no longer needed. For the NOAA panel, pass
 
 ### Next steps
 
-1. Commit the uncommitted files above, including the deletion of `docs/variable_reference.xlsx`
-   (`git add -A docs/`). Tell the teammate first: `reduced_benchmark.py` is theirs.
+1. Committed and pushed in `3f8c6b1`. Tell the teammate: it deletes their
+   `temp_merge_panel.py` and edits their `reduced_benchmark.py`, `cleaned_items/used_files.md`
+   and `HANDOFF2.md` to `HANDOFF4.md`; OpenFEMA is done.
 2. One pipeline: **done** (2026-11-09). `temp_merge_panel.py` and `state_model.py` are deleted;
    `merge_panel.py` defaults to PRISM, and `reduced_benchmark.py --score-state` replaces the
    12-state part of `state_model.py` (its monotone constraints were not carried over). Still to
