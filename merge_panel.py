@@ -11,6 +11,7 @@ Inputs:
   --clean-dir   data/clean/                   optional tables from the data-collection guide;
                                               each is joined if its file exists:
       census_county_year.csv         GEOID, year, housing_units, population, median_value, ...
+      ghsl_county_year.csv           GEOID, year, built_m2 (ghsl_features.py; adds log_built_surface)
       nfip_policies_county_year.csv  GEOID, year, policies_in_force
       hma_county_year.csv            GEOID, year, buyouts_cum, elevations_cum
       crs_county_year.csv            GEOID, year, crs_best_class, crs_class5_or_better
@@ -49,7 +50,7 @@ HOUSING_COLS = ["log_housing_units", "urban_share"]
 C_NAMES = {"p95": "c_wetday_p95_mm", "p99": "c_wetday_p99_mm",
            "rl2": "c_rx5_rl2_mm", "rl10": "c_rx5_rl10_mm", "rl25": "c_rx5_rl25_mm"}
 
-YEARLY_TABLES = ["census_county_year.csv", "nfip_policies_county_year.csv",
+YEARLY_TABLES = ["census_county_year.csv", "ghsl_county_year.csv", "nfip_policies_county_year.csv",
                  "hma_county_year.csv", "crs_county_year.csv"]
 STATIC_TABLES = ["soils_county.csv"]
 
@@ -141,6 +142,8 @@ def main():
         print("  none yet")
     if "policies_in_force" in panel and "housing_units" in panel:
         panel["nfip_policies_per_hu"] = panel["policies_in_force"] / panel["housing_units"]
+    if "built_m2" in panel:
+        panel["log_built_surface"] = np.log(panel["built_m2"])
 
     # checks
     if panel.duplicated(KEYS).any():

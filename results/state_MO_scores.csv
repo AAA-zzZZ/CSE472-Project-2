@@ -1,0 +1,5 @@
+,ROC-AUC,PR-AUC,Brier skill,mean P / rate,AUC within month,top 5%: share of loss,... without largest month,"rank corr, year","MAE, damaged"
+baseline: county x month rate,0.7476,0.066,0.0,1.3962,0.6409,0.0706,0.1235,0.347,0.9664
+GLM hurdle,0.8952,0.2381,-0.0894,2.0254,0.7888,0.7017,0.4781,0.3051,0.7814
+LightGBM hurdle,0.9059,0.27,0.0296,1.6632,0.811,0.5632,0.2358,0.3489,0.731
+"LightGBM hurdle, trained on 12 states",0.9101,0.2836,-0.0059,2.0702,0.811,0.6803,0.4406,0.2904,0.7274
