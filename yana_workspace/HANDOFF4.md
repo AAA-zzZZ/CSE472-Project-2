@@ -3,6 +3,15 @@
 Read this after `HANDOFF.md`, `HANDOFF2.md` and `HANDOFF3.md`. It covers the session of
 2026-11-08 on branch `enci-dev`. The refit is committed in `ff53ea1`.
 
+> **Update 2026-11-09** (details in the "Latest session" section of `../HANDOFF.md`):
+> next step 1 (NFIP and buyouts) is done with `openfema_features.py`: the OpenFEMA datasets named
+> in `data/openfema/README.md` were removed by FEMA, NFIP policies start in 2009, and buyouts
+> added nothing. Step 2 (recalibration) is done with `recalibrate.py`. Step 7 is done:
+> `temp_merge_panel.py` is deleted; `merge_panel.py` (PRISM by default) + `ghsl_features.py` give
+> the same panel, so the rebuild command below becomes `python merge_panel.py`.
+> `reduced_benchmark.py` gained `--openfema buyouts` and `--score-state MO` (fit all 12 states,
+> score Missouri). The variable reference is now `docs/flood_variable_reference.xlsx`.
+
 **Status:** the GLM and LightGBM hurdle models are refit on PRISM rain and GHSL exposure, for
 the full Midwest and for Missouri. **NFIP flood insurance and buyout data are still being
 collected**, so these results do not include them.

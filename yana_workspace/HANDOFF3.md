@@ -3,6 +3,12 @@
 Read this after `HANDOFF.md` and `HANDOFF2.md`. It covers the session of
 2026-11-06 on branch `enci-dev`.
 
+> **Update 2026-11-09:** the chosen state is **Missouri** (FIPS 29). The rebuild command below
+> needs `merge_panel.py --thresholds out/prism_midwest/w_county_thresholds.csv` (without it, C is
+> the NOAA 1951–1999 climate). The data folders are `data/gee_prism_midwest/` and `data/gee_ghsl/`.
+> NFIP and HMA were later collected after all. Current status: the "Latest session" section of
+> `../HANDOFF.md`.
+
 **Status (2026-11-06):** the team is continuing with **Route 2: PRISM and other
 inputs from Google Earth Engine (GEE)**. The **2000–2023 Midwest PRISM pull and
 the GHSL export are done**, as reported by the team. The model scope has since
