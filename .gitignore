@@ -232,3 +232,6 @@ panel_county_month_noaa.csv
 out/prism_midwest/w_county_month.csv
 # OpenFEMA downloads from openfema_features.py --download (about 4 GB)
 data/openfema/raw/
+
+# GEE clone of midwest_flood_impact (renamed so files commit normally)
+midwest_flood_impact/.git_gee/
