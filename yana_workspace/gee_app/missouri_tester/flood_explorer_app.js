@@ -5,6 +5,9 @@
 //
 // Setup: upload yana_workspace/gee_app/missouri_tester/mo_flood_app_table.csv as a table asset, then make sure
 // ASSET_ID below matches where you saved it.
+//
+// Merged with yana_workspace/gee_exposure_app.js: adds the wettest-5-days PRISM layer, GHSL interpolated
+// between 5-year images (as in ghsl_features.py), and source maps for 2000-2023 (predictions: 2017-2023).
 
 var ASSET_ID = 'projects/flood-513221/assets/mo_flood_app_table';
 
@@ -69,9 +72,21 @@ function nlcdYear(id, y) {
 function landCover(y) {
   return nlcdYear('projects/sat-io/open-datasets/USGS/ANNUAL_NLCD/LANDCOVER', y);
 }
+// GHSL images are 5 years apart: interpolate linearly between the two around the year
 function ghsl(y) {
-  var image = Math.max(1995, Math.min(2025, Math.round(y / 5) * 5));
-  return ee.Image('JRC/GHSL/P2023A/GHS_BUILT_S/' + image).select('built_surface');
+  var lo = Math.max(1995, Math.min(2020, Math.floor(y / 5) * 5)), w = (y - lo) / 5;
+  var img = function (e) { return ee.Image('JRC/GHSL/P2023A/GHS_BUILT_S/' + e).select('built_surface'); };
+  return img(lo).multiply(1 - w).add(img(lo + 5).multiply(w));
+}
+// wettest 5 days: trailing 5-day windows that end on a day of the month, as in w_indices.py's rx5
+function rx5(y, m) {
+  var s = monthStart(y, m);
+  var n = s.advance(1, 'month').difference(s, 'day');
+  var sums = ee.List.sequence(0, n.subtract(1)).map(function (i) {
+    var end = s.advance(ee.Number(i).add(1), 'day');
+    return ee.ImageCollection('OREGONSTATE/PRISM/ANd').filterDate(end.advance(-5, 'day'), end).select('ppt').sum();
+  });
+  return ee.ImageCollection.fromImages(sums).max();
 }
 function dem() {
   var col = ee.ImageCollection('USGS/3DEP/10m_collection').filterBounds(region);
@@ -123,6 +138,8 @@ var GROUPS = {
       0, 300, BLUE, 'mm', 'OREGONSTATE/PRISM/ANd, sum of daily ppt.', 4000),
     'Wettest single day': raster(function (y, m) { return prismMonth(y, m).select('ppt').max(); },
       0, 100, BLUE, 'mm', 'OREGONSTATE/PRISM/ANd, maximum daily ppt.', 4000),
+    'Wettest 5 days': raster(rx5, 0, 150, BLUE, 'mm',
+      'OREGONSTATE/PRISM/ANd, largest 5-day total (rx5). The model divides it by the 10-year level.', 4000),
     'Frost days': raster(function (y, m) {
       return prismMonth(y, m).select('tmin').map(function (d) { return d.lt(0).toInt(); }).sum();
     }, 0, 31, PURPLE, 'days', 'OREGONSTATE/PRISM/ANd, days with tmin below 0 C.', 4000)
@@ -141,7 +158,7 @@ var GROUPS = {
   },
   'GHSL': {
     'Built-up surface': raster(function (y) { return ghsl(y - 1); }, 0, 3000, HEAT, 'm2 per 100 m cell',
-      'JRC/GHSL/P2023A/GHS_BUILT_S, 5-year image nearest year - 1. The model interpolates between images.', 100, true)
+      'JRC/GHSL/P2023A/GHS_BUILT_S, year - 1, interpolated between 5-year images as in the model.', 100, true)
   },
   'NLCD': {
     'Land cover': raster(function (y) { return landCover(y - 1).remap(NLCD_VALUES, ee.List.sequence(0, 15)); },
@@ -167,7 +184,9 @@ var GROUPS = {
 // ---------- Controls ----------
 var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September',
   'October', 'November', 'December'];
-var YEARS = [2017, 2018, 2019, 2020, 2021, 2022, 2023];
+var FIRST_PRED_YEAR = 2017; // the prediction table covers 2017-2023; source maps go back to 2000
+var YEARS = [];
+for (var yr = 2000; yr <= 2023; yr++) { YEARS.push(yr); }
 var selected = null;   // the clicked county: {geoid, name}
 var requestId = 0;     // ignores slow replies after the selection has changed
 
@@ -294,7 +313,9 @@ function redraw() {
     Map.addLayer(outline(joined.filter(ee.Filter.eq('top5', 1)), 3), {palette: ['#00bcd4']}, 'Highest-risk counties');
   }
   Map.layers().add(highlight);
-  noteLabel.setValue(layer.note);
+  var noPred = yearSelect.getValue() < FIRST_PRED_YEAR;
+  noteLabel.setValue(layer.note + (layer.type === 'county' && noPred
+    ? ' No county values before ' + FIRST_PRED_YEAR + ': pick a later year or a source-data layer.' : ''));
   drawLegend(layer);
   if (selected) { showCounty(); }
 }
@@ -318,7 +339,13 @@ function showCounty() {
   query.toDictionary().evaluate(function (r, err) {
     if (mine !== requestId) { return; }
     if (err || !r) {
-      statusLabel.setValue('No prediction found. Check that ASSET_ID points to the uploaded table.');
+      if (yearSelect.getValue() < FIRST_PRED_YEAR) {
+        statusLabel.setValue(selected.name + ' County, ' + MONTHS[monthSelect.getValue() - 1] + ' ' +
+          yearSelect.getValue() + ': no predictions before ' + FIRST_PRED_YEAR + '.');
+        showRasterMean(mine);
+      } else {
+        statusLabel.setValue('No prediction found. Check that ASSET_ID points to the uploaded table.');
+      }
       return;
     }
     statusLabel.setValue(selected.name + ' County, ' + MONTHS[monthSelect.getValue() - 1] + ' ' + yearSelect.getValue());
