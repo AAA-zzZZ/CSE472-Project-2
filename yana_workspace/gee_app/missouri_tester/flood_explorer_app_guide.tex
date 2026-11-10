@@ -291,4 +291,95 @@ GHSL, Built-up surface & Where buildings are concentrated \\
   \item \textbf{NFIP flood insurance and buyouts are not included.} That data is still being collected.
 \end{itemize}
 
+%----------------------------------------------------------------
+\section{How the Predictions Are Calculated}
+
+The app does not calculate predictions itself. It looks up a row in \col{mo\_flood\_app\_table.csv},
+which is built ahead of time by \col{build\_app\_table.py} using the LightGBM hurdle model in
+\col{reduced\_benchmark.py}. This section follows one county through that calculation:
+\textbf{Miller County, April 2017}.
+
+\subsection*{The two models}
+
+Both models are trained only on Missouri counties for 2000--2016, so April 2017 is out of sample.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{lYY}
+\toprule
+ & \textbf{Part 1: classifier} & \textbf{Part 2: regressor} \\
+\midrule
+Predicts & Chance of any damage that month, $p$ & $\log_{10}$ of the loss, assuming damage happened, $\mu$ \\
+Trained on & All county-months & Only county-months with damage \\
+Miller County & $p = 0.375$ & Not saved in the table \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\noindent The number of trees is set by early stopping (fit on 2000--2012, validate on 2013--2016),
+then multiplied by 1.15 for the final fit on all of 2000--2016.
+
+\subsection*{Inputs for Miller County, April 2017}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{ll}
+\toprule
+\textbf{Input} & \textbf{Value} \\
+\midrule
+Monthly rain & 250.8 mm \\
+Wettest 5 days / 10-year level & 1.24 (above a 10-year event) \\
+Snowmelt, snowpack, frost days & About 0 \\
+Soil wetness percentile & 72\% \\
+10-year 5-day rain & 142.6 mm \\
+Log built-up surface & 16.02 \\
+Paved share & 1.2\% \\
+Land under 5 m above drainage & 18\% \\
+Log land area & 7.34 \\
+Wetland share & 0.35\% \\
+Calendar month & April \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent Calendar month is a 13th input that the side panel's input list does not show.
+
+\subsection*{How each number in the side panel is produced}
+
+The expected loss combines both models:
+\[
+\text{Expected loss} = p \times 10^{\mu} \times \text{smear}
+\]
+The smear factor is a single correction: the average of $10^{(\text{actual} - \text{predicted})}$
+over the training months with damage. Without it, converting from $\log_{10}$ back to dollars would
+give something closer to a typical loss and understate the average.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.6cm}Yl}
+\toprule
+\textbf{Side panel field} & \textbf{Calculation} & \textbf{Miller County} \\
+\midrule
+Chance of any damage & $p$ from Part 1 & 0.3753, shown as 38\% \\
+Expected loss & $p \times 10^{\mu} \times \text{smear}$ & \$1,377,640, shown as \$1.4M \\
+Loss if damage occurs & Expected loss $\div\ p$, which equals $10^{\mu} \times \text{smear}$ & \$3,670,660, shown as \$3.7M \\
+Rank in the state & Position by expected loss among the 115 counties that month & 40 \\
+Recorded loss (SHELDUS) & Actual inflation-adjusted loss; not a prediction or an input & \$2,563,200, shown as \$2.6M \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection*{Reading these numbers}
+
+\begin{itemize}
+  \item \textbf{Compare \$3.7M to the recorded loss, not \$1.4M.} Damage did occur, so the loss if
+        damage occurs is the like-for-like estimate. Here it is about 1.4 times too high. The
+        \$1.4M is an average that includes the 62\% chance of no damage.
+  \item \textbf{Loss if damage occurs is closer to a mean than a typical value.} The smear factor
+        pulls it toward rare, very large losses, so a typical damaging month would be lower.
+\end{itemize}
+
 \end{document}
