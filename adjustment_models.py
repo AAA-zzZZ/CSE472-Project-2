@@ -44,9 +44,9 @@ Output, in --out-dir:
   plot_storm_coef.png, plot_climate_bars.png, plot_damage_curves.png   (needs matplotlib)
 
 Usage:
-    python adjustment_models.py --state MO --out-dir results/adjustment_missouri
-    python adjustment_models.py --out-dir results/adjustment_midwest
-    python adjustment_models.py --extras --drop poverty_rate --out-dir <folder>
+    python adjustment_models.py --drop log_snowmelt_mm --out-dir results/adjustment_midwest
+    python adjustment_models.py --state MO --drop log_snowmelt_mm --out-dir results/adjustment_missouri
+  log_snowmelt_mm is dropped because it correlates above 0.8 with log_swe_mm and frost_days.
 """
 
 import argparse
@@ -78,6 +78,9 @@ MODELS = {
     "M4": dict(climate=True, adapt=True, inter=True),
 }
 MAIN_A = "nfip_policies_per_hu"          # the adaptation variable used in the report sentences
+LESS_PREPARED = {"built_pre1980_share"}  # adaptation variables where higher means less prepared
+STEP = 0.1                               # storm step quoted in the report sentences
+Z = 1.96
 
 
 class Tee:
@@ -256,26 +259,92 @@ def summary_table(coefs, adapt):
     return out
 
 
+def clear(est, se):
+    """Clearly different from zero: the 95% interval excludes 0."""
+    return abs(est) > Z * se
+
+
+def times(b):
+    """Loss multiplier for a storm STEP larger, from a per-unit log10 coefficient."""
+    return 10 ** (STEP * b)
+
+
 def report(coefs, adapt):
-    """The four comparisons from the one-pager, filled with this run's numbers."""
-    c = coefs.set_index(["model", "term"])["coef"]
+    """The one-pager's comparisons, worded from this run's numbers and intervals.
+
+    Storm size is quoted per STEP of rx5_rl_ratio (0.1 = a month's wettest 5 days at 10% more of
+    the county's 10-year 5-day level); the coefficient tables stay per 1 unit.
+    """
+    k = coefs.set_index(["model", "term"])
+    c, se = k["coef"], k["se"]
     b1 = {m: c[(m, STORM)] for m in MODELS}
-    print("\nreport sentences (check signs and intervals before using them):")
-    print(f"  Storm, M0 to M3: one more unit of rx5_rl_ratio multiplies loss by "
-          f"10^{b1['M0']:.2f} = {10 ** b1['M0']:.1f}x ignoring climate and adaptation, and by "
-          f"10^{b1['M3']:.2f} = {10 ** b1['M3']:.1f}x after adjusting for both.")
-    print(f"  Storm, M2 vs M3: {b1['M2']:.2f} vs {b1['M3']:.2f}. A gap means the adaptation "
-          "variables do not capture everything that climate stands in for.")
+    s1 = {m: se[(m, STORM)] for m in MODELS}
+    print(f"\nreport sentences (storm size per {STEP} of rx5_rl_ratio, i.e. {STEP:.0%} of the "
+          "county's 10-year 5-day rain; check them against the tables before use):")
+
+    # storm, M0 to M3: a change smaller than the larger SE is "hardly changes"
+    diff = b1["M3"] - b1["M0"]
+    if abs(diff) < max(s1["M0"], s1["M3"]):
+        verdict = "hardly changes the storm effect"
+    elif diff > 0:
+        verdict = "raises the storm effect: ignoring them understates storm damage"
+    else:
+        verdict = "lowers the storm effect: ignoring them overstates storm damage"
+    print(f"  Storm, M0 to M3: adjusting for climate and adaptation {verdict}. A storm {STEP} larger "
+          f"multiplies loss by {times(b1['M0']):.2f}x unadjusted and {times(b1['M3']):.2f}x "
+          f"adjusted (b1 {b1['M0']:.2f} -> {b1['M3']:.2f}, SE about {s1['M3']:.2f}).")
+
+    # storm, M2 vs M3: is there anything left for climate once adaptation is in?
+    gap = b1["M3"] - b1["M2"]
+    if abs(gap) < s1["M3"]:
+        print(f"  Storm, M2 vs M3: {b1['M2']:.2f} vs {b1['M3']:.2f}, within one SE: once adaptation "
+              "is controlled, adding climate does not change the storm effect.")
+    else:
+        print(f"  Storm, M2 vs M3: {b1['M2']:.2f} vs {b1['M3']:.2f}: adding climate still moves the "
+              "storm effect, so the adaptation variables miss part of what climate stands in for.")
+
+    # climate, M1 to M3: a share is only meaningful if c is clearly nonzero and shrinks toward 0
     c1, c3 = c[("M1", CLIMATE)], c[("M3", CLIMATE)]
-    share = (c1 - c3) / c1 if c1 != 0 else np.nan
-    print(f"  Climate, M1 to M3: c moves from {c1:.3f} to {c3:.3f} per 10 mm; measured "
-          f"adaptation explains {share:.0%} of the climate coefficient.")
+    e1, e3 = se[("M1", CLIMATE)], se[("M3", CLIMATE)]
+    line = f"c = {c1:+.3f} (SE {e1:.3f}) in M1 and {c3:+.3f} (SE {e3:.3f}) in M3, per 10 mm"
+    if not clear(c1, e1) and not clear(c3, e3):
+        print(f"  Climate, M1 to M3: given the storm, climate has no clear effect on loss ({line}); "
+              "no share is explained.")
+    elif not clear(c1, e1):
+        direction = "lose less" if c3 < 0 else "lose more"
+        print(f"  Climate, M1 to M3: wetter-climate counties {direction} for the same storm only once "
+              f"adaptation is controlled ({line}): measured adaptation hides part of the climate "
+              "effect rather than explaining it.")
+    elif np.sign(c3) == np.sign(c1) and abs(c3) < abs(c1):
+        direction = "lose less" if c1 < 0 else "lose more"
+        print(f"  Climate, M1 to M3: wetter-climate counties {direction} for the same storm ({line}); "
+              f"measured adaptation explains {(c1 - c3) / c1:.0%} of that.")
+    else:
+        direction = "lose less" if c1 < 0 else "lose more"
+        print(f"  Climate, M1 to M3: wetter-climate counties {direction} for the same storm ({line}); "
+              "adding adaptation does not shrink it, so measured adaptation does not explain it.")
+
+    # M4: main adaptation variable, then every other d that is clearly nonzero
     a = MAIN_A if MAIN_A in adapt else adapt[0]
-    d = c[("M4", f"{STORM}:{a}")]
     b14 = b1["M4"]
-    print(f"  M4: one more unit of rx5_rl_ratio multiplies loss by {10 ** b14:.1f}x in a county of "
-          f"average {a}, and by 10^({b14:.2f} {d:+.2f}) = {10 ** (b14 + d):.1f}x one std above "
-          "average.")
+    for var in [a] + [v for v in adapt if v != a]:
+        d, sd = c[("M4", f"{STORM}:{var}")], se[("M4", f"{STORM}:{var}")]
+        if var != a and not clear(d, sd):
+            continue
+        if not clear(d, sd):
+            verdict = "no clear change"
+        elif d < 0:
+            verdict = "less damage from the same storm" + (
+                " (higher means LESS prepared for this variable: check the reading)"
+                if var in LESS_PREPARED else "")
+        else:
+            verdict = "more damage from the same storm" + (
+                "" if var in LESS_PREPARED else " (unexpected for an adaptation variable)")
+        print(f"  M4, {var}: a storm {STEP} larger multiplies loss by {times(b14):.2f}x at average "
+              f"{var} and {times(b14 + d):.2f}x one std above (d = {d:+.3f}, SE {sd:.3f}): {verdict}.")
+    quiet = [v for v in adapt if v != a and not clear(c[("M4", f"{STORM}:{v}")], se[("M4", f"{STORM}:{v}")])]
+    if quiet:
+        print(f"  M4, no clear effect on storm damage: {', '.join(quiet)}.")
 
 
 # ---------------------------------------------------------------
@@ -315,7 +384,7 @@ def plots(coefs, fits, data, adapt, out_dir):
            yerr=[sub["coef"] - sub["ci_lo"], sub["ci_hi"] - sub["coef"]], capsize=5)
     ax.axhline(0, color="grey", lw=0.8)
     ax.set_ylabel("c (log10 loss per 10 mm of rx5 10-year level)")
-    ax.set_title("Climate coefficient before and after adaptation")
+    ax.set_title("Climate coefficient\nbefore and after adaptation", fontsize=10)
     fig.tight_layout()
     fig.savefig(os.path.join(out_dir, "plot_climate_bars.png"), dpi=200)
     plt.close(fig)

@@ -3,10 +3,86 @@
 Read this first when picking up the project in a new session. It summarizes the
 work through 2026-11-01 on branch `enci-dev` (pull request #1 into `main`).
 
-**Newer work:** read [Latest session (2026-11-08 to 2026-11-09)](#latest-session-2026-11-08-to-2026-11-09)
+**Newest work:** [Climate and adaptation adjustment (2026-11-10 to 2026-11-11)](#climate-and-adaptation-adjustment-2026-11-10-to-2026-11-11).
+**Before that:** [Latest session (2026-11-08 to 2026-11-09)](#latest-session-2026-11-08-to-2026-11-09)
 below, then `yana_workspace/HANDOFF2.md` to `HANDOFF4.md` (the teammate's sessions: 5-county
 design, Route 2 with PRISM, the PRISM refit). The sections after the latest session describe the
 original NOAA design and are kept as history.
+
+## Climate and adaptation adjustment (2026-11-10 to 2026-11-11)
+
+The instructor's one-pager (*Flood impact: adjusting for climatology and adaptation*, 10 Nov
+2026) replaces the "Equation 4" plan. It asks for five nested regressions on the same rows, to
+see whether controlling for rain climate (C) and adaptation (A) changes the storm effect. This is
+a separate analysis for interpretation; it does not change the forecast model or the app.
+
+### Design (`adjustment_models.py`)
+
+`log10(loss) = b1 storm + b2 exposure + c climate + a adaptation + d (storm x adaptation) + rest`,
+ordinary least squares with standard errors clustered by county.
+
+| Part | Variables |
+|---|---|
+| Sample | Damage months only (log10 loss is undefined at zero), model years 2011-2023. NFIP and CRS are joined with a one-year lag, so the 2010-2022 tables cover exactly these years. Same rows in every model (complete cases on the M4 set) |
+| Storm (b1) | `rx5_rl_ratio` = wettest 5 days of the month / county's 10-year 5-day level |
+| Exposure (b2) | `log_built_surface` |
+| Climate (c) | `c_rx5_rl10_mm` / 10, so c is per 10 mm |
+| Adaptation (a, d) | `nfip_policies_per_hu`, `log_median_income`, `built_pre1980_share`, `wetland_share`, `crs_credit` = 10 - `crs_best_class` (so higher = better prepared; CRS class 1 is best, 10 = not in CRS). Each scaled to mean 0, std 1 on the fitted rows. Higher `built_pre1980_share` means *less* prepared |
+| Rest (every model) | `sm_root_pct`, `log_swe_mm`, `frost_days`, `log_p_month`, `hand_lt5_share`, `log_land_km2`, month and state effects. `log_snowmelt_mm` dropped (`--drop`): it correlates 0.85 with `log_swe_mm` and 0.86 with `frost_days`; dropping it moved b1 by 0.01 and each d by under 0.01 |
+| Models | M0 rest only; M1 + climate; M2 + adaptation; M3 + both; M4 = M3 + storm x each adaptation variable |
+
+CRS comes from `crsClassCode` on the NFIP policies (`openfema_features.py`, `data/clean/crs_county_year.csv`).
+Only 200 of 1,055 counties (12 of Missouri's 115) ever have a class better than 10.
+
+```powershell
+python merge_panel.py      # after openfema_features.py, so the panel has crs_best_class
+python adjustment_models.py --drop log_snowmelt_mm --out-dir results/adjustment_midwest
+python adjustment_models.py --state MO --drop log_snowmelt_mm --out-dir results/adjustment_missouri
+```
+
+Outputs per folder: `coefs.csv`, `summary.csv` (the one-pager's Step 3 table), `correlations.csv`,
+`sample.csv`, `log.txt` (with report sentences) and three plots: `plot_storm_coef.png`,
+`plot_climate_bars.png`, `plot_damage_curves.png`. The committed logs were written before the
+report sentences were reworded (storm per 0.1, interval-aware wording); rerun to refresh them.
+
+### Results
+
+| | 12 states (4,698 damage months, 883 counties) | Missouri (415, 80 counties) |
+|---|---|---|
+| b1 storm, M0 -> M3 (SE) | 1.20 -> 1.16 (0.07) | 1.24 -> 1.32 (0.22) |
+| Loss per 0.1 more storm, M0 -> M3 | 1.32x -> 1.30x | 1.33x -> 1.36x |
+| c climate per 10 mm, M1 / M3 | -0.014 (0.012) / -0.012 (0.012) | +0.038 (0.019) / +0.045 (0.018) |
+| d storm x insurance | **-0.095 (0.045)** | -0.168 (0.151) |
+| d storm x pre-1980 housing | -0.154 (0.042) | 0.038 (0.172) |
+| d storm x income / wetlands / CRS | none clearly nonzero | none clearly nonzero |
+
+- **The storm effect hardly changes after adjusting** (both regions; changes under one SE). The
+  one-pager's illustration (0.60 -> 0.75) does not appear in this data. Report it as a finding.
+- **Climate:** no clear effect given the storm across the 12 states. In Missouri, wetter-climate
+  counties lose somewhat more, and only clearly so once adaptation is in (M3), so adaptation does
+  not explain the climate coefficient. Do not report a "% explained".
+- **Insurance is the one adaptation result:** the same storm does less damage where more homes are
+  insured (12 states, about 2 SE; Missouri same sign, not significant). Read it from d, not a:
+  in Missouri a for insurance is +0.29 in M4, because risky counties buy more insurance.
+- **Pre-1980 housing** has a clear d in the 12 states but in the unexpected direction (older stock,
+  less extra damage per storm), probably rural, less exposed counties. Flag, do not interpret as
+  adaptation. Missouri shows nothing.
+- Missouri alone has wide intervals (SE about 3x the 12-state run). Lead with the 12-state run.
+
+### Earth Engine apps
+
+No change needed: the apps show the LightGBM forecast model (which still uses `snowmelt_mm`; the
+drop applies to the adjustment regressions only). Optional: add adaptation layers (NFIP policies
+per housing unit, CRS, income, pre-1980 share) for the one-pager's side-by-side maps. The two copies
+of the explorer (`midwest_flood_impact/flood_explorer.js` and
+`yana_workspace/gee_app/missouri_tester/flood_explorer_app.js`) differ only in `ASSET_ID`.
+
+### Next steps
+
+1. Rerun both adjustment commands to refresh `log.txt` with the reworded sentences.
+2. Tell the instructor the expected pattern (storm effect larger after adjusting, negative climate
+   coefficient) does not appear, and that insurance is the only clear adaptation effect.
+3. Optional: an adaptation map layer in the app, and a check with insurance as the only A variable.
 
 ## Latest session (2026-11-08 to 2026-11-09)
 
@@ -25,7 +101,8 @@ outside Earth Engine if each source and variable is justified.
 | Dollars and rank | Weak (within 2× of recorded loss in 24% of damage months); mostly a SHELDUS problem (split multi-county losses) | Report as indicative |
 | OpenFEMA | Pulled and built; buyouts add nothing; NFIP only usable 2010+ (Equation 4) | Done |
 | Variable documentation | `docs/flood_variable_reference.xlsx` updated to PRISM, GHSL and OpenFEMA | Done; `reduced_variables.md` still old |
-| Equation 4, BYM2, loss-data checks | Not started | Next |
+| Equation 4 | Replaced by the climate and adaptation adjustment (above) | Done 2026-11-11 |
+| BYM2, loss-data checks | Not started | Next |
 
 ### Files added or changed
 
@@ -213,7 +290,7 @@ for the buyout runs is no longer needed. For the NOAA panel, pass
 4. Choose on 2013–2016 where the dollar ranking comes from: GLM, LightGBM or their average.
    (Missouri-only vs 12-state training is decided: 12 states for LightGBM.)
 5. Ask the mentor (see below), then: loss classes and the split-loss flag; NFIP claims check.
-6. Equation 4 on 2010–2023 with NFIP policies as A, plus the confounding simulation (open);
+6. Equation 4: **done** as `adjustment_models.py` (see the newest section). Still open: the confounding simulation;
    BYM2 for Missouri in R-INLA (teammate, HANDOFF4).
 7. Update `reduced_variables.md` (describes the old setup). `data/openfema/README.md` is current
    (rewritten 2026-11-09).
