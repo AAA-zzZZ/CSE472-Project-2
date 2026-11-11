@@ -8,7 +8,8 @@ Climate and adaptation adjustment: five nested regressions of flood loss on stor
   exposure   log_built_surface       how much can be damaged (X)
   climate    c_rx5_rl10_mm / 10      how wet it normally is (C), so c is "per 10 mm"
   adaptation nfip_policies_per_hu, log_median_income, built_pre1980_share, wetland_share,
-             crs_best_class if the panel has it (A), each scaled to mean 0, std 1
+             crs_credit = 10 - crs_best_class if the panel has it (A), each scaled to mean 0,
+             std 1, so higher always means better prepared (CRS class 1 is best, 10 is none)
   rest       sm_root_pct, log snowmelt, log snow water, frost days, log monthly rain,
              hand_lt5_share, log land area, month and state fixed effects (in every model)
 
@@ -64,7 +65,7 @@ STORM = "rx5_rl_ratio"
 EXPOSURE = "log_built_surface"
 CLIMATE = "climate_10mm"                 # c_rx5_rl10_mm / 10
 ADAPT = ["nfip_policies_per_hu", "log_median_income", "built_pre1980_share", "wetland_share"]
-CRS = "crs_best_class"                   # added to ADAPT when the panel has it
+CRS = "crs_credit"                       # 10 - crs_best_class: 0 = not in CRS, 9 = class 1
 REST = ["sm_root_pct", "log_snowmelt_mm", "log_swe_mm", "frost_days", "log_p_month",
         "hand_lt5_share", "log_land_km2"]
 EXTRAS = ["log_median_value", "mobile_home_share", "impervious_mean"]   # --extras, added to REST
@@ -124,7 +125,13 @@ def load(path, state, extras, drop):
     if extras:
         data["log_median_value"] = np.log(data["median_value"])
 
-    adapt = ADAPT + ([CRS] if CRS in data else [])
+    if "crs_best_class" in data:
+        data[CRS] = 10 - data["crs_best_class"]
+        adapt = ADAPT + [CRS]
+    else:
+        adapt = list(ADAPT)
+        print("WARNING crs_best_class not in the panel: CRS left out. Rerun merge_panel.py "
+              "after openfema_features.py writes data/clean/crs_county_year.csv")
     rest = REST + (EXTRAS if extras else [])
     for name in drop:
         if name not in [STORM, EXPOSURE, CLIMATE] + adapt + rest:
@@ -147,6 +154,8 @@ def load(path, state, extras, drop):
     data = data[finite].reset_index(drop=True)
     if data.empty:
         raise SystemExit("no rows left")
+    print(f"adaptation (A): {adapt}")
+    print(f"rest (every model): {rest}")
 
     # scale each adaptation variable to mean 0, std 1 on the fitted rows, so a and d are per
     # 1 std and b1 in M4 is the storm effect in a county of average adaptation
