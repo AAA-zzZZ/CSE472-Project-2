@@ -1,7 +1,7 @@
 # OpenFEMA data (adaptation, A)
 
 Collected on 2026-11-09 for all 12 Midwest states. `openfema_features.py` (repository root)
-turns the raw downloads in `raw/` into the two county-year tables below. The raw files are
+turns the raw downloads in `raw/` into the three county-year tables below. The raw files are
 about 4 GB and git-ignored; the tables are committed in `data/clean/`.
 
 The datasets this folder was first planned around (FIMA NFIP Redacted Policies v2,
@@ -37,6 +37,7 @@ It writes to `data/clean/`, under the names `merge_panel.py` looks for:
 | File | Columns | How it is built |
 |---|---|---|
 | `nfip_policies_county_year.csv` | `GEOID, year, policies_in_force` | Sum of `policyCount` for policies in force on 1 July (effective ≤ 1 July < termination, or cancellation if earlier). County = first 5 digits of `censusGeoid` |
+| `crs_county_year.csv` | `GEOID, year, crs_best_class, crs_class5_or_better` | Community Rating System class from `crsClassCode` on the same 1 July policies: best (lowest) class in the county, 10 if no policy carries a class; indicator for class ≤ 5. Same years as NFIP (before 2010 empty) |
 | `hma_county_year.csv` | `GEOID, year, buyouts_cum, elevations_cum` | Funded sites (status Approved or later) with primary activity Acquisition or Elevation, counted by county and program fiscal year, cumulative since 1989 |
 
 Both cover all 1,055 counties for 1999–2022, saved under their own year (`merge_panel.py`
@@ -91,4 +92,5 @@ years, but it covers the causal period (2010–2023) as a yearly adaptation vari
   claims with date of loss and damage). Only to check the SHELDUS outcome (for example, losses
   split equally across counties), **never as an input**, and only with the instructor's approval.
   Claims cover insured property only.
-- FEMA Community Rating System classes (optional).
+- CRS classes before 2010. `crs_county_year.csv` takes them from the policies, so 1999–2009
+  would need FEMA's past CRS community lists, assembled by hand.

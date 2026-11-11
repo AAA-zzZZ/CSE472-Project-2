@@ -17,6 +17,10 @@ Outputs (data/clean/, saved under their own year; merge_panel.py applies the one
       policies in force on July 1 (effective <= July 1 < termination or cancellation).
       Years before 2010 are left empty: the data starts in 2009, so July 1, 2009 misses the
       policies that began in 2008. Unknown is not zero, so they are not filled.
+  crs_county_year.csv            GEOID, year, crs_best_class, crs_class5_or_better   1999-2022
+      Community Rating System class from crsClassCode on the same July 1 policies: the best
+      (lowest) class in the county, 10 if no policy carries a class; indicator for class <= 5.
+      Same coverage as policies_in_force (years before 2010 empty).
   hma_county_year.csv            GEOID, year, buyouts_cum, elevations_cum   1999-2022, 0 if none
       cumulative count of acquisition / elevation sites since 1989 by program fiscal year, for
       subapplications that were approved or later (not denied, withdrawn, pending, ...).
@@ -58,7 +62,8 @@ FILES = {
     "subs": ("HmaSubapplications.csv", "https://www.fema.gov/api/open/v2/HmaSubapplications.csv"),
 }
 NFIP_COLS = ["propertyState", "censusGeoid", "policyEffectiveDate", "policyTerminationDate",
-             "cancellationDateOfFloodPolicy", "policyCount"]
+             "cancellationDateOfFloodPolicy", "policyCount", "crsClassCode"]
+NO_CRS = 10                       # CRS class 10 = community not in the Community Rating System
 # subapplication statuses that mean the project was funded
 FUNDED = {"Approved", "Awarded", "Subaward Accepted", "Closed", "Closeout Initiated", "Completed",
           "Subgrant Financial Reconciliation"}
@@ -95,7 +100,7 @@ def nfip(raw, counties):
     pf = pq.ParquetFile(os.path.join(raw, FILES["nfip"][0]))
     states = pa.array(list(STATES.values()))
     years = range(2009, END + 1)
-    totals, n_rows, n_nogeo = [], 0, 0
+    totals, best, n_rows, n_nogeo = [], [], 0, 0
     for batch in pf.iter_batches(columns=NFIP_COLS, batch_size=2_000_000):
         batch = batch.filter(pc.is_in(batch["propertyState"], value_set=states))
         if batch.num_rows == 0:
@@ -109,14 +114,19 @@ def nfip(raw, counties):
         end = pd.to_datetime(df["policyTerminationDate"])
         cancel = pd.to_datetime(df["cancellationDateOfFloodPolicy"])
         end = end.where(cancel.isna() | (cancel > end), cancel)
+        crs = pd.to_numeric(df["crsClassCode"], errors="coerce")
+        df["crs"] = crs.where(crs.between(1, NO_CRS))                    # blank or invalid -> unknown
         for y in years:
             day = pd.Timestamp(y, 7, 1)
             live = (eff <= day) & (end > day) & df["GEOID"].notna()
             if live.any():
-                totals.append(df.loc[live].groupby("GEOID")["policyCount"].sum().rename(y))
+                g = df.loc[live].groupby("GEOID")
+                totals.append(g["policyCount"].sum().rename(y))
+                best.append(g["crs"].min().rename(y))
         print(f"  {n_rows:,} Midwest policy records read")
     print(f"NFIP: {n_rows:,} records in the 12 states, {n_nogeo:,} without a census code (dropped)")
 
+    crs_table = crs_from_policies(best, counties)
     by_year = pd.concat(totals, axis=1).T.groupby(level=0).sum().T          # GEOID x year
     extra = sorted(set(by_year.index) - set(counties["GEOID"]))
     if extra:
@@ -129,7 +139,28 @@ def nfip(raw, counties):
                  .pivot_table(index="year", columns="state", values="policies_in_force", aggfunc="sum"))
     print("policies in force on July 1, by state (check against FEMA's published totals):")
     print(state_tot.astype(int).to_string())
-    return out
+    return out, crs_table
+
+
+def crs_from_policies(best, counties):
+    """Best (lowest) CRS class among each county's policies in force on July 1.
+
+    A county with no policy carrying a class is class 10 (no participating community seen).
+    Years before NFIP_FIRST_YEAR are left empty, as for policies_in_force.
+    """
+    by_year = pd.concat(best, axis=1).T.groupby(level=0).min().T             # GEOID x year
+    out = all_rows(counties).join(by_year.stack().rename("crs_best_class"), on=["GEOID", "year"])
+    known = out["year"] >= NFIP_FIRST_YEAR
+    out.loc[known, "crs_best_class"] = out.loc[known, "crs_best_class"].fillna(NO_CRS)
+    out.loc[~known, "crs_best_class"] = np.nan
+    out["crs_class5_or_better"] = (out["crs_best_class"] <= 5).astype(float).where(known)
+    k = out[known]
+    print(f"CRS: share of counties with a participating community (class < 10), by year:")
+    print("  " + str((k["crs_best_class"] < NO_CRS).groupby(k["year"]).mean().round(3).to_dict()))
+    print(f"  class 5 or better: {k['crs_class5_or_better'].mean():.1%} of county-years; "
+          f"best-class distribution in {END}: "
+          f"{k.loc[k['year'] == END, 'crs_best_class'].value_counts().sort_index().to_dict()}")
+    return out[["GEOID", "year", "crs_best_class", "crs_class5_or_better"]]
 
 
 # ---------------------------------------------------------------
@@ -200,10 +231,12 @@ def main():
     print(f"saved hma_county_year.csv: {len(table):,} rows\n")
 
     if not args.skip_nfip:
-        table = nfip(args.raw, counties)
+        table, crs = nfip(args.raw, counties)
         table.to_csv(os.path.join(args.out_dir, "nfip_policies_county_year.csv"), index=False, float_format="%.0f")
         print(f"saved nfip_policies_county_year.csv: {len(table):,} rows, "
               f"years before {NFIP_FIRST_YEAR} left empty")
+        crs.to_csv(os.path.join(args.out_dir, "crs_county_year.csv"), index=False, float_format="%.0f")
+        print(f"saved crs_county_year.csv: {len(crs):,} rows, years before {NFIP_FIRST_YEAR} left empty")
 
 
 if __name__ == "__main__":
