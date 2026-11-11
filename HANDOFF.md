@@ -71,18 +71,35 @@ report sentences were reworded (storm per 0.1, interval-aware wording); rerun to
 
 ### Earth Engine apps
 
-No change needed: the apps show the LightGBM forecast model (which still uses `snowmelt_mm`; the
-drop applies to the adjustment regressions only). Optional: add adaptation layers (NFIP policies
-per housing unit, CRS, income, pre-1980 share) for the one-pager's side-by-side maps. The two copies
-of the explorer (`midwest_flood_impact/flood_explorer.js` and
-`yana_workspace/gee_app/missouri_tester/flood_explorer_app.js`) differ only in `ASSET_ID`.
+The forecast layers are unchanged: the apps show the LightGBM forecast model, which still uses
+`snowmelt_mm` (the drop applies to the adjustment regressions only).
+
+**Added 2026-11-11:** an "Adaptation (county values)" layer group in the explorer (both copies:
+`midwest_flood_impact/flood_explorer.js` and `yana_workspace/gee_app/missouri_tester/flood_explorer_app.js`,
+which differ only in `ASSET_ID`), for the one-pager's side-by-side maps of climate
+("10-year 5-day rain"), adaptation and loss:
+
+| Layer | Column | Colour range |
+|---|---|---|
+| Flood insurance | `nfip_policies_per_hu` (shown per 100 homes) | 0 to 4 |
+| Community Rating System class | `crs_best_class` (darker = better; 10 = not in CRS) | 5 to 10 |
+| Median household income | `median_income` (2024 dollars) | $35k to $100k |
+| Homes built before 1980 | `built_pre1980_share` | 20% to 87% |
+| Wetland share | `wetland_share` (also a model input) | 0 to 8.5% |
+
+Clicking a county also lists these values. All are from year - 1, as in `merge_panel.py`.
+`build_app_table.py` adds the four new columns from `data/clean/`;
+`--adaptation-only` adds them to the existing table without refitting the model. The committed
+`mo_flood_app_table.csv` now has them (other columns unchanged). **Re-upload the CSV** to the
+Earth Engine table asset, or the new layers come up blank.
 
 ### Next steps
 
 1. Rerun both adjustment commands to refresh `log.txt` with the reworded sentences.
 2. Tell the instructor the expected pattern (storm effect larger after adjusting, negative climate
    coefficient) does not appear, and that insurance is the only clear adaptation effect.
-3. Optional: an adaptation map layer in the app, and a check with insurance as the only A variable.
+3. Re-upload `mo_flood_app_table.csv` to the Earth Engine asset and check the Adaptation layers.
+4. Optional: a check with insurance as the only A variable.
 
 ## Latest session (2026-11-08 to 2026-11-09)
 

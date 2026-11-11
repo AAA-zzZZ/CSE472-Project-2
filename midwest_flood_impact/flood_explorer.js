@@ -48,6 +48,7 @@ function usd(v) {
 function usdLog(v) { return usd(Math.pow(10, v)); }
 function plain(v) { return String(Math.round(v * 1000) / 1000); }
 function pct(v) { return (v * 100).toFixed(0) + '%'; }
+function per100(v) { return (v * 100).toFixed(1); }
 
 // ---------- Source datasets (the same IDs and bands as the export scripts) ----------
 function monthStart(y, m) { return ee.Date.fromYMD(y, m, 1); }
@@ -132,6 +133,23 @@ var GROUPS = {
     'Land under 5 m above drainage': county('hand_lt5_share', 0.1, 1, BLUE, pct, 'share of county', 'hand_lt5_share, from MERIT Hydro. Fixed for each county.'),
     'County land area (log)': county('log_land_km2', 6.5, 7.9, GRAY, plain, 'ln of km2', 'log_land_km2, from Census TIGER. Fixed for each county.'),
     'Wetland share': county('wetland_share', 0, 0.085, GREEN, pct, 'share of county, year - 1', 'wetland_share, from Annual NLCD.')
+  },
+  // not inputs of the forecast model: the adaptation (A) variables of adjustment_models.py,
+  // all from year - 1 as in merge_panel.py
+  'Adaptation (county values)': {
+    'Flood insurance': county('nfip_policies_per_hu', 0, 0.04, GREEN, per100, 'NFIP policies per 100 homes, year - 1',
+      'nfip_policies_per_hu, from FEMA NFIP Redacted Policies v3 (in force on 1 July) and census housing units. ' +
+      'The clearest adaptation result: the same storm does less damage where more homes are insured.'),
+    'Community Rating System class': county('crs_best_class', 5, 10, GREEN.slice().reverse(), plain,
+      'best class in the county, year - 1 (10 = not in CRS)',
+      'crs_best_class, from crsClassCode on the NFIP policies. Lower is better floodplain management; ' +
+      'darker = better. Only 12 of 115 counties take part.'),
+    'Median household income': county('median_income', 35000, 100000, GREEN, usd, '2024 dollars, year - 1',
+      'median_income, from the census and ACS (census_features.py). Money to protect property and recover.'),
+    'Homes built before 1980': county('built_pre1980_share', 0.2, 0.87, PURPLE, pct, 'share of homes, year - 1',
+      'built_pre1980_share, from the census and ACS. Older building standards: higher = less prepared.'),
+    'Wetland share': county('wetland_share', 0, 0.085, GREEN, pct, 'share of county, year - 1',
+      'wetland_share, from Annual NLCD. Natural water storage (also a model input).')
   },
   'PRISM': {
     'Monthly rain': raster(function (y, m) { return prismMonth(y, m).select('ppt').sum(); },
@@ -230,7 +248,9 @@ var panel = ui.Panel({
       'with the data behind the model.', {margin: '2px 8px'}),
     ui.Label('Layer', HEADER), groupSelect, layerSelect,
     ui.Label('The PRISM, ERA5-Land, GHSL, NLCD and Terrain maps are for reference and are not the ' +
-      'actual model inputs. The model uses the county values in the "Model inputs" group.', SMALL),
+      'actual model inputs. The model uses the county values in the "Model inputs" group. The ' +
+      '"Adaptation" group is not a model input: it maps how prepared each county is, for the ' +
+      'climate and adaptation analysis.', SMALL),
     ui.Label('Month', HEADER),
     ui.Panel([yearSelect, monthSelect], ui.Panel.Layout.flow('horizontal')),
     ui.Panel([ui.Button({label: 'Previous', onClick: function () { step(-1); }}),
@@ -368,6 +388,13 @@ function showCounty() {
     detail.add(row('Land under 5 m above drainage', pct(r.hand_lt5_share)));
     detail.add(row('County land area', Math.exp(r.log_land_km2).toFixed(0) + ' km2'));
     detail.add(row('Wetland share, year - 1', (r.wetland_share * 100).toFixed(1) + '%'));
+    if (r.nfip_policies_per_hu !== undefined) {
+      detail.add(section('Adaptation (year - 1, not a model input)'));
+      detail.add(row('Flood insurance policies per 100 homes', per100(r.nfip_policies_per_hu)));
+      detail.add(row('Community Rating System class', r.crs_best_class >= 10 ? 'Not in CRS (10)' : plain(r.crs_best_class)));
+      detail.add(row('Median household income', usd(r.median_income)));
+      detail.add(row('Homes built before 1980', pct(r.built_pre1980_share)));
+    }
     showRasterMean(mine);
   });
 
