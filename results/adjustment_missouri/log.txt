@@ -1,0 +1,38 @@
+adjustment_models.py --state MO --drop log_snowmelt_mm --out-dir results/adjustment_missouri
+damage months 2011-2023: 415; dropped 0 with a missing or infinite input
+adaptation (A): ['nfip_policies_per_hu', 'log_median_income', 'built_pre1980_share', 'wetland_share', 'crs_credit']
+rest (every model): ['sm_root_pct', 'log_swe_mm', 'frost_days', 'log_p_month', 'hand_lt5_share', 'log_land_km2']
+       rows  counties  first_year  last_year
+state                                       
+MO      415        80        2011       2023
+correlation check: no pair above |r| = 0.8
+M0: 415 rows, 80 counties, 20 terms, R2 0.436
+M1: 415 rows, 80 counties, 21 terms, R2 0.441
+M2: 415 rows, 80 counties, 25 terms, R2 0.449
+M3: 415 rows, 80 counties, 26 terms, R2 0.455
+M4: 415 rows, 80 counties, 31 terms, R2 0.459
+
+coefficients (clustered SE); adaptation per 1 std, loss in log10 dollars
+model                                      M0             M1              M2              M3              M4
+b1 storm                        1.236 (0.208)  1.339 (0.219)   1.203 (0.214)   1.322 (0.221)   1.365 (0.222)
+b2 exposure                     0.146 (0.051)  0.139 (0.053)   0.207 (0.061)   0.194 (0.063)   0.194 (0.063)
+c climate (per 10 mm)                          0.038 (0.019)                   0.045 (0.018)   0.047 (0.019)
+d storm x nfip_policies_per_hu                                                                -0.168 (0.151)
+d storm x log_median_income                                                                    0.036 (0.156)
+d storm x built_pre1980_share                                                                  0.038 (0.172)
+d storm x wetland_share                                                                        0.219 (0.133)
+d storm x crs_credit                                                                          -0.031 (0.110)
+a nfip_policies_per_hu                                         0.169 (0.080)   0.176 (0.078)   0.293 (0.097)
+a log_median_income                                           -0.049 (0.062)  -0.053 (0.061)  -0.090 (0.138)
+a built_pre1980_share                                          0.083 (0.059)   0.080 (0.061)   0.042 (0.148)
+a wetland_share                                               -0.059 (0.071)  -0.069 (0.072)  -0.238 (0.116)
+a crs_credit                                                   0.090 (0.046)   0.112 (0.043)   0.129 (0.114)
+
+report sentences (check signs and intervals before using them):
+  Storm, M0 to M3: one more unit of rx5_rl_ratio multiplies loss by 10^1.24 = 17.2x ignoring climate and adaptation, and by 10^1.32 = 21.0x after adjusting for both.
+  Storm, M2 vs M3: 1.20 vs 1.32. A gap means the adaptation variables do not capture everything that climate stands in for.
+  Climate, M1 to M3: c moves from 0.038 to 0.045 per 10 mm; measured adaptation explains -19% of the climate coefficient.
+  M4: one more unit of rx5_rl_ratio multiplies loss by 23.2x in a county of average nfip_policies_per_hu, and by 10^(1.37 -0.17) = 15.7x one std above average.
+plots written to results/adjustment_missouri
+
+results in results/adjustment_missouri
