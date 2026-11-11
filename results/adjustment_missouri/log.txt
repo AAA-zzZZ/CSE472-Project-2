@@ -28,11 +28,12 @@ a built_pre1980_share                                          0.083 (0.059)   0
 a wetland_share                                               -0.059 (0.071)  -0.069 (0.072)  -0.238 (0.116)
 a crs_credit                                                   0.090 (0.046)   0.112 (0.043)   0.129 (0.114)
 
-report sentences (check signs and intervals before using them):
-  Storm, M0 to M3: one more unit of rx5_rl_ratio multiplies loss by 10^1.24 = 17.2x ignoring climate and adaptation, and by 10^1.32 = 21.0x after adjusting for both.
-  Storm, M2 vs M3: 1.20 vs 1.32. A gap means the adaptation variables do not capture everything that climate stands in for.
-  Climate, M1 to M3: c moves from 0.038 to 0.045 per 10 mm; measured adaptation explains -19% of the climate coefficient.
-  M4: one more unit of rx5_rl_ratio multiplies loss by 23.2x in a county of average nfip_policies_per_hu, and by 10^(1.37 -0.17) = 15.7x one std above average.
+report sentences (storm size per 0.1 of rx5_rl_ratio, i.e. 10% of the county's 10-year 5-day rain; check them against the tables before use):
+  Storm, M0 to M3: adjusting for climate and adaptation hardly changes the storm effect. A storm 0.1 larger multiplies loss by 1.33x unadjusted and 1.36x adjusted (b1 1.24 -> 1.32, SE about 0.22).
+  Storm, M2 vs M3: 1.20 vs 1.32, within one SE: once adaptation is controlled, adding climate does not change the storm effect.
+  Climate, M1 to M3: wetter-climate counties lose more for the same storm only once adaptation is controlled (c = +0.038 (SE 0.019) in M1 and +0.045 (SE 0.018) in M3, per 10 mm): measured adaptation hides part of the climate effect rather than explaining it.
+  M4, nfip_policies_per_hu: a storm 0.1 larger multiplies loss by 1.37x at average nfip_policies_per_hu and 1.32x one std above (d = -0.168, SE 0.151): no clear change.
+  M4, no clear effect on storm damage: log_median_income, built_pre1980_share, wetland_share, crs_credit.
 plots written to results/adjustment_missouri
 
 results in results/adjustment_missouri

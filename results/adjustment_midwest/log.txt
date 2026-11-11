@@ -39,11 +39,13 @@ a built_pre1980_share                                           0.126 (0.031)   
 a wetland_share                                                 0.043 (0.030)   0.041 (0.030)   0.036 (0.046)
 a crs_credit                                                   -0.046 (0.026)  -0.048 (0.026)  -0.105 (0.046)
 
-report sentences (check signs and intervals before using them):
-  Storm, M0 to M3: one more unit of rx5_rl_ratio multiplies loss by 10^1.20 = 15.9x ignoring climate and adaptation, and by 10^1.16 = 14.3x after adjusting for both.
-  Storm, M2 vs M3: 1.20 vs 1.16. A gap means the adaptation variables do not capture everything that climate stands in for.
-  Climate, M1 to M3: c moves from -0.014 to -0.012 per 10 mm; measured adaptation explains 13% of the climate coefficient.
-  M4: one more unit of rx5_rl_ratio multiplies loss by 12.9x in a county of average nfip_policies_per_hu, and by 10^(1.11 -0.09) = 10.4x one std above average.
+report sentences (storm size per 0.1 of rx5_rl_ratio, i.e. 10% of the county's 10-year 5-day rain; check them against the tables before use):
+  Storm, M0 to M3: adjusting for climate and adaptation hardly changes the storm effect. A storm 0.1 larger multiplies loss by 1.32x unadjusted and 1.30x adjusted (b1 1.20 -> 1.16, SE about 0.07).
+  Storm, M2 vs M3: 1.20 vs 1.16, within one SE: once adaptation is controlled, adding climate does not change the storm effect.
+  Climate, M1 to M3: given the storm, climate has no clear effect on loss (c = -0.014 (SE 0.012) in M1 and -0.012 (SE 0.012) in M3, per 10 mm); no share is explained.
+  M4, nfip_policies_per_hu: a storm 0.1 larger multiplies loss by 1.29x at average nfip_policies_per_hu and 1.26x one std above (d = -0.095, SE 0.045): less damage from the same storm.
+  M4, built_pre1980_share: a storm 0.1 larger multiplies loss by 1.29x at average built_pre1980_share and 1.25x one std above (d = -0.154, SE 0.042): less damage from the same storm (higher means LESS prepared for this variable: check the reading).
+  M4, no clear effect on storm damage: log_median_income, wetland_share, crs_credit.
 plots written to results/adjustment_midwest
 
 results in results/adjustment_midwest
