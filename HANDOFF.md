@@ -3,11 +3,107 @@
 Read this first when picking up the project in a new session. It summarizes the
 work through 2026-11-01 on branch `enci-dev` (pull request #1 into `main`).
 
-**Newest work:** [Climate and adaptation adjustment (2026-11-10 to 2026-11-11)](#climate-and-adaptation-adjustment-2026-11-10-to-2026-11-11).
-**Before that:** [Latest session (2026-11-08 to 2026-11-09)](#latest-session-2026-11-08-to-2026-11-09)
+**Newest work:** [Midwest explorer app (2026-11-13)](#midwest-explorer-app-2026-11-13).
+**Before that:** [Climate and adaptation adjustment (2026-11-10 to 2026-11-11)](#climate-and-adaptation-adjustment-2026-11-10-to-2026-11-11),
+then [Latest session (2026-11-08 to 2026-11-09)](#latest-session-2026-11-08-to-2026-11-09)
 below, then `yana_workspace/HANDOFF2.md` to `HANDOFF4.md` (the teammate's sessions: 5-county
 design, Route 2 with PRISM, the PRISM refit). The sections after the latest session describe the
 original NOAA design and are kept as history.
+
+## Midwest explorer app (2026-11-13)
+
+The Missouri explorer is extended to all 12 states. Everything new is in
+`yana_workspace/gee_app/Midwest/`; the Missouri app in `missouri_tester/` is unchanged. Decisions
+(agreed with the team): predictions for the **2017-2023 test years only** (as Missouri; earlier
+years would be in-sample), from **one LightGBM trained on all 12 states**, **rank and top 5% within
+each state** plus a Midwest-wide rank, and a **state selector** with an "All 12 Midwest states"
+option.
+
+### Files in `yana_workspace/gee_app/`
+
+| File | What it is |
+|---|---|
+| `missouri_tester/build_app_table.py`, `flood_explorer_app.js`, `mo_flood_app_table.csv`, `flood_explorer_app_guide.tex/.pdf` | Missouri app (unchanged). `midwest_flood_impact/flood_explorer.js` is the same app with another `ASSET_ID` |
+| `Midwest/build_midwest_app_table.py` | New: builds the Midwest table |
+| `Midwest/midwest_flood_app_table.csv` | New: 88,620 rows (1,055 counties x 84 months, 2017-01 to 2023-12), 32 columns, 17.5 MB, no missing values |
+| `Midwest/flood_explorer_app2.js` | New: the Midwest explorer, adapted from `flood_explorer_app.js` |
+
+### `build_midwest_app_table.py`
+
+```powershell
+pip install lightgbm scikit-learn
+python yana_workspace/gee_app/Midwest/build_midwest_app_table.py                    # refit and write the table
+python yana_workspace/gee_app/Midwest/build_midwest_app_table.py --adaptation-only  # refresh adaptation columns only
+```
+
+- Loads `model_panel.csv` with `reduced_benchmark.load()` for all 12 states (state is an input),
+  chooses tree counts on 2000-2012 -> 2013-2016, refits on 2000-2016 with 15% more trees
+  (546 and 436) and predicts 2017-2023: the same steps as `reduced_benchmark.py` without `--state`.
+- Stops unless the test scores match `results/midwest_prism/scores.csv`. They match exactly:
+  ROC-AUC 0.8910, PR-AUC 0.2651, MAE 0.8315.
+- Joins the adaptation columns with `add_adaptation()` imported from
+  `missouri_tester/build_app_table.py` (one copy of that join; values from year - 1).
+- Prints the counties and top-5% size per state and the 1st/99th percentiles used for the app's
+  colour ranges.
+
+### How the columns match `mo_flood_app_table.csv`
+
+Every column of the Missouri table, with the same name, units and meaning, plus two:
+
+| Columns | Same as Missouri? |
+|---|---|
+| `key` (`G` + 5-digit GEOID), `year`, `month`, `ym`, `ym_label`, `has_damage`, `actual_loss`, `log10_actual_loss` | Same |
+| The 12 model inputs: `p_month`, `rx5_rl_ratio`, `snowmelt_mm`, `frost_days`, `sm_root_pct`, `swe_mm`, `c_rx5_rl10_mm`, `log_built_surface`, `impervious_mean`, `hand_lt5_share`, `log_land_km2`, `wetland_share` | Same (units the model sees) |
+| `p_damage`, `expected_loss`, `loss_if_damage`, `log10_expected_loss` | Same meaning, but from the 12-state model, so Missouri's values differ from `mo_flood_app_table.csv` |
+| `rank`, `top5` | Same meaning: rank **within the county's state** each month; `top5` = top 5% of that state's counties, `round(0.05 x counties)`: MO 6; IA, IL, IN, KS, NE 5; MI, MN, OH, WI 4; ND, SD 3 |
+| `nfip_policies_per_hu`, `crs_best_class`, `median_income`, `built_pre1980_share` | Same (year - 1) |
+| **`state`** (new, second column) | Two-letter state code; the app filters on it |
+| **`rank_midwest`** (new, after `top5`) | Rank by expected loss among all 1,055 counties that month |
+
+Rows are sorted by `ym`, `state`, `rank`. Each state's top 5% catches 51% of test-year loss.
+
+### How `flood_explorer_app2.js` is set up
+
+Same layout, layer groups, county details and chart as `flood_explorer_app.js`. Changes:
+
+- **`ASSET_ID`** = `projects/flood-513221/assets/midwest_flood_app_table` (upload the CSV there,
+  or change it).
+- **`STATES` table** at the top: FIPS, name, county count and top-5% size for each state;
+  `N_MIDWEST = 1055`.
+- **State selector** (Missouri by default, any state, or "All 12 Midwest states"). `setState()`
+  sets `counties` (TIGER counties of that state, or all 12) and `stateRows` (the table filtered on
+  `state`, so the monthly join only touches that state's rows). Changing state zooms the map,
+  clears the selected county and redraws; the title follows the state. The All view adds state
+  borders.
+- **Prediction layers:** "Rank within the state" colours 1 to the selected state's county count
+  (115 in the All view); new **"Rank across the Midwest"** layer uses `rank_midwest` (1 to 1,055).
+- **Top-5% outline:** the selected state's top counties; in the All view, each state's top 5%.
+  The checkbox label updates with the count.
+- **County details:** heading names county and state; shows "Rank in <state>: r of n (top 5%)"
+  and "Rank in the Midwest: r of 1,055".
+- **Colour ranges** reset from the Midwest table's 1st-99th percentiles, since Missouri's cut off
+  much of the region: snowmelt 0-65 mm, snowpack 0-80 mm, 10-year 5-day rain 65-210 mm, built
+  surface 13.4-18.7, land area 6.2-8.8, wetland share 0-30%, insurance 0-5 per 100 homes, income
+  $40k-$110k, pre-1980 28-87%; raster snowpack 0-100 mm, snowmelt 0-70 mm, elevation 100-1,000 m.
+- **Raster layers** clip with `clipToCollection(counties)` (cheaper than a 1,055-county
+  geometry); the 3DEP mosaic is filtered to the selected counties.
+- "About the predictions" text describes the 12-state model; the CRS note says about 200 of
+  1,055 counties take part.
+
+Syntax-checked with `node --check`; **not yet run in the Code Editor.**
+
+### Next steps
+
+1. Upload `Midwest/midwest_flood_app_table.csv` as a table asset at `ASSET_ID`, run
+   `flood_explorer_app2.js`, and check the All view (1,055 counties, slower) and the Elevation
+   and land-cover rasters over the whole region.
+2. Re-upload `missouri_tester/mo_flood_app_table.csv` too (adaptation columns; see below).
+3. Optional: SHAP values or partial dependence plots for LightGBM, to show its storm and exposure
+   effects point the same way as b1 and b2 of the adjustment regressions.
+
+Write-ups for this and the adjustment are outside the repository, in
+`Project 2/Summary Guides/`: `adjustment_models_summary.pdf` (models M0-M4 and the log) and
+`meaningful_coefficients_summary.pdf` (which coefficients are meaningful, why LightGBM has none).
 
 ## Climate and adaptation adjustment (2026-11-10 to 2026-11-11)
 
@@ -95,7 +191,8 @@ Earth Engine table asset, or the new layers come up blank.
 
 ### Next steps
 
-1. Rerun both adjustment commands to refresh `log.txt` with the reworded sentences.
+1. ~~Rerun both adjustment commands to refresh `log.txt` with the reworded sentences.~~ Done
+   (`30c4532`).
 2. Tell the instructor the expected pattern (storm effect larger after adjusting, negative climate
    coefficient) does not appear, and that insurance is the only clear adaptation effect.
 3. Re-upload `mo_flood_app_table.csv` to the Earth Engine asset and check the Adaptation layers.
