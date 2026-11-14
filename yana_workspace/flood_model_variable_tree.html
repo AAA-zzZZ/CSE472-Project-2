@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reduced Flood Variable Tree</title>
+<style>
+  :root {
+    --bg: #fbfaf7;
+    --surface: #ffffff;
+    --ink: #1d1f23;
+    --muted: #5d636e;
+    --line: #c9ccd2;
+    --hair: #e4e5e9;
+    --w: #2563a6;      --w-soft: #e6eef8;
+    --c: #7a3fa0;      --c-soft: #f1e9f6;
+    --x: #b45f06;      --x-soft: #fbefe1;
+    --a: #2f7d4b;      --a-soft: #e5f3ea;
+    --k: #5d636e;      --k-soft: #eeeff2;
+    --drop: #9a3b3b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #15171b; --surface: #1d2026; --ink: #e8e9ec; --muted: #a2a8b3;
+      --line: #4a4f59; --hair: #31353d;
+      --w: #7fb0e6; --w-soft: #1d2a3a;
+      --c: #c39be0; --c-soft: #2c2236;
+      --x: #e7a35a; --x-soft: #33271a;
+      --a: #7fcb98; --a-soft: #1c2e23;
+      --k: #a2a8b3; --k-soft: #272a31;
+      --drop: #e08a8a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #15171b; --surface: #1d2026; --ink: #e8e9ec; --muted: #a2a8b3;
+    --line: #4a4f59; --hair: #31353d;
+    --w: #7fb0e6; --w-soft: #1d2a3a;
+    --c: #c39be0; --c-soft: #2c2236;
+    --x: #e7a35a; --x-soft: #33271a;
+    --a: #7fcb98; --a-soft: #1c2e23;
+    --k: #a2a8b3; --k-soft: #272a31;
+    --drop: #e08a8a;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.45 "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif;
+  }
+  main { max-width: 1180px; margin: 0 auto; padding: 32px 16px 48px; }
+  h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .lede { color: var(--muted); margin: 0 0 20px; max-width: 760px; }
+  code, .var { font-family: "Cascadia Mono", Consolas, "SFMono-Regular", Menlo, monospace; font-size: 12.5px; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 0 0 24px; font-size: 13px; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+
+  /* root */
+  .root {
+    margin: 0 auto; width: fit-content; max-width: 100%;
+    background: var(--surface); border: 1.5px solid var(--ink); border-radius: 10px;
+    padding: 12px 18px; text-align: center;
+  }
+  .root .t { font-weight: 650; font-size: 16px; }
+  .root .s { color: var(--muted); font-size: 13px; }
+  .stem { width: 1.5px; height: 18px; background: var(--line); margin: 0 auto; }
+
+  /* branches */
+  .branches {
+    display: grid; grid-template-columns: 1.35fr 0.8fr 1.15fr 0.85fr 0.85fr; gap: 14px;
+    position: relative; padding-top: 18px;
+  }
+  .branch { position: relative; }
+  .branch::after {
+    content: ""; position: absolute; top: -18px; left: -7px; right: -7px;
+    border-top: 1.5px solid var(--line);
+  }
+  .branch:first-child::after { left: 50%; }
+  .branch:last-child::after { right: 50%; }
+  .branch::before {
+    content: ""; position: absolute; top: -18px; left: 50%; height: 18px;
+    border-left: 1.5px solid var(--line);
+  }
+  .head {
+    border-radius: 8px; padding: 9px 12px; border: 1.5px solid var(--bc); background: var(--bs);
+  }
+  .head .t { font-weight: 650; color: var(--bc); }
+  .head .s { font-size: 12px; color: var(--muted); }
+  .w { --bc: var(--w); --bs: var(--w-soft); }
+  .c { --bc: var(--c); --bs: var(--c-soft); }
+  .x { --bc: var(--x); --bs: var(--x-soft); }
+  .a { --bc: var(--a); --bs: var(--a-soft); }
+  .k { --bc: var(--k); --bs: var(--k-soft); }
+
+  .sub { margin: 10px 0 0 10px; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  ul.leaves { list-style: none; margin: 6px 0 0 10px; padding: 0 0 0 14px; border-left: 1.5px solid var(--line); }
+  ul.leaves li { position: relative; padding: 5px 0 5px 4px; }
+  ul.leaves li::before {
+    content: ""; position: absolute; left: -14px; top: 15px; width: 12px;
+    border-top: 1.5px solid var(--line);
+  }
+  ul.leaves li:last-child::after {
+    content: ""; position: absolute; left: -16px; top: 16px; bottom: 0; width: 4px; background: var(--bg);
+  }
+  .leaf {
+    background: var(--surface); border: 1px solid var(--hair); border-left: 3px solid var(--bc);
+    border-radius: 6px; padding: 5px 8px;
+  }
+  .leaf .var { font-weight: 600; color: var(--ink); }
+  .leaf .d { font-size: 12px; color: var(--muted); }
+
+  /* dropped */
+  h2 { font-size: 18px; margin: 36px 0 6px; }
+  .note { color: var(--muted); margin: 0 0 14px; font-size: 13px; }
+  .dropgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+  .dropcard {
+    background: var(--surface); border: 1px solid var(--hair); border-top: 3px solid var(--bc);
+    border-radius: 8px; padding: 10px 12px;
+  }
+  .dropcard .t { font-weight: 650; font-size: 13px; color: var(--bc); margin-bottom: 4px; }
+  .dropcard ul { margin: 0; padding-left: 0; list-style: none; }
+  .dropcard li { padding: 2px 0; font-size: 12.5px; color: var(--muted); }
+  .dropcard li .var { color: var(--ink); text-decoration: line-through; text-decoration-color: var(--drop); }
+  .dropcard li.keep .var { text-decoration: none; }
+
+  footer { margin-top: 28px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--hair); padding-top: 10px; }
+
+  @media (max-width: 860px) {
+    .branches { grid-template-columns: 1fr; gap: 18px; padding-top: 0; }
+    .branch::before, .branch::after { display: none; }
+  }
+
+  @page { size: letter landscape; margin: 0.4in; }
+  @media print {
+    :root { --bg: #ffffff; }
+    body { font-size: 11.5px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    main { max-width: none; padding: 0; }
+    h1 { font-size: 20px; }
+    .lede { margin-bottom: 10px; }
+    .legend { margin-bottom: 12px; }
+    .branches { grid-template-columns: 1.35fr 0.8fr 1.15fr 0.85fr 0.85fr; gap: 10px; padding-top: 14px; }
+    .branch::before, .branch::after { display: block; }
+    .branch::before { top: -14px; height: 14px; }
+    .branch::after { top: -14px; left: -5px; right: -5px; }
+    .branch:first-child::after { left: 50%; }
+    .branch:last-child::after { right: 50%; }
+    ul.leaves li { padding: 3px 0 3px 4px; }
+    ul.leaves li::before { top: 12px; }
+    ul.leaves li:last-child::after { top: 13px; }
+    .leaf { padding: 3px 7px; }
+    .dropped-section { break-before: page; }
+    h2 { margin-top: 24px; }
+    .dropped-section h2:first-child { margin-top: 0; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Reduced Flood Model Variable Tree</h1>
+  <p class="lede">The 12 inputs and 2 controls of the narrowed impact model, one per physical mechanism. The same set feeds both the GLM hurdle and the LightGBM hurdle. The 27 dropped inputs and the unused panel columns are listed after the tree.</p>
+
+  <div class="legend">
+    <span><i class="sw" style="background:var(--w)"></i>Hazard (W)</span>
+    <span><i class="sw" style="background:var(--c)"></i>Long-run rain climate (C)</span>
+    <span><i class="sw" style="background:var(--x)"></i>Exposure and susceptibility (X)</span>
+    <span><i class="sw" style="background:var(--a)"></i>Adaptation (A)</span>
+    <span><i class="sw" style="background:var(--k)"></i>Controls</span>
+  </div>
+
+  <div class="root">
+    <div class="t">Y: county-month property loss</div>
+    <div class="s"><code>has_damage</code> (part 1) &nbsp;×&nbsp; <code>log_PropertyDmgADJ</code> given damage (part 2) &nbsp;·&nbsp; SHELDUS, 2024 $</div>
+  </div>
+  <div class="stem"></div>
+
+  <div class="branches">
+    <section class="branch w">
+      <div class="head"><div class="t">Hazard (W)</div><div class="s">6 inputs · nClimGrid-Daily, ERA5-Land</div></div>
+      <div class="sub">Same month</div>
+      <ul class="leaves">
+        <li><div class="leaf"><div class="var">p_month</div><div class="d">Monthly rain total (log)</div></div></li>
+        <li><div class="leaf"><div class="var">rx5_rl_ratio</div><div class="d">Wettest 5 days ÷ county 10-yr level</div></div></li>
+        <li><div class="leaf"><div class="var">snowmelt_mm</div><div class="d">Snowmelt in the month (log)</div></div></li>
+        <li><div class="leaf"><div class="var">frost_days</div><div class="d">Days with Tmin &lt; 0 °C (frozen ground)</div></div></li>
+      </ul>
+      <div class="sub">Known in advance (day 1)</div>
+      <ul class="leaves">
+        <li><div class="leaf"><div class="var">sm_root_pct</div><div class="d">Root-zone soil wetness percentile</div></div></li>
+        <li><div class="leaf"><div class="var">swe_mm</div><div class="d">Snowpack water equivalent (log)</div></div></li>
+      </ul>
+    </section>
+
+    <section class="branch c">
+      <div class="head"><div class="t">Rain climate (C)</div><div class="s">1 input · nClimGrid-Daily, 1951–1999</div></div>
+      <ul class="leaves">
+        <li><div class="leaf"><div class="var">c_rx5_rl10_mm</div><div class="d">10-year 5-day rain level (confounder)</div></div></li>
+      </ul>
+    </section>
+
+    <section class="branch x">
+      <div class="head"><div class="t">Exposure &amp; susceptibility (X)</div><div class="s">4 inputs · NHGIS, NLCD, MERIT Hydro, TIGER</div></div>
+      <ul class="leaves">
+        <li><div class="leaf"><div class="var">log_housing_units</div><div class="d">Homes exposed</div></div></li>
+        <li><div class="leaf"><div class="var">impervious_mean</div><div class="d">Paved share (runoff), year − 1</div></div></li>
+        <li><div class="leaf"><div class="var">hand_lt5_share</div><div class="d">Land &lt; 5 m above drainage</div></div></li>
+        <li><div class="leaf"><div class="var">log_land_km2</div><div class="d">County land area (scale)</div></div></li>
+      </ul>
+    </section>
+
+    <section class="branch a">
+      <div class="head"><div class="t">Adaptation (A)</div><div class="s">1 input · Annual NLCD</div></div>
+      <ul class="leaves">
+        <li><div class="leaf"><div class="var">wetland_share</div><div class="d">Natural water storage, year − 1</div></div></li>
+      </ul>
+    </section>
+
+    <section class="branch k">
+      <div class="head"><div class="t">Controls</div><div class="s">2 fixed effects</div></div>
+      <ul class="leaves">
+        <li><div class="leaf"><div class="var">state</div><div class="d">Reporting differences</div></div></li>
+        <li><div class="leaf"><div class="var">calendar month</div><div class="d">Seasonality</div></div></li>
+      </ul>
+    </section>
+  </div>
+
+  <section class="dropped-section">
+    <h2>Dropped from the models</h2>
+    <p class="note">Struck-through columns stay in <code>model_panel.csv</code> but are no longer model inputs. Each repeats a kept variable (in parentheses).</p>
+    <div class="dropgrid">
+      <div class="dropcard w">
+        <div class="t">W: rain duplicates</div>
+        <ul>
+          <li><span class="var">rx1</span>, <span class="var">rx3</span>, <span class="var">rx5</span> (rx5_rl_ratio)</li>
+          <li><span class="var">n_gt_p95</span>, <span class="var">n_gt_p99</span> (p_month)</li>
+          <li><span class="var">rx5_gt_rl10</span> (rx5_rl_ratio)</li>
+          <li><span class="var">rain_x_wetsoil</span> (interaction)</li>
+        </ul>
+      </div>
+      <div class="dropcard w">
+        <div class="t">W: soil and snow duplicates</div>
+        <ul>
+          <li><span class="var">sm_surface</span>, <span class="var">sm_root</span>, <span class="var">sm_root_anom</span> (sm_root_pct)</li>
+          <li><span class="var">spi1_prev</span>, <span class="var">spi2_prev</span> (sm_root_pct)</li>
+          <li><span class="var">snowmelt_prev_mm</span> (swe_mm)</li>
+          <li><span class="var">frost_days_prev</span> (frost_days)</li>
+        </ul>
+      </div>
+      <div class="dropcard c">
+        <div class="t">C: other thresholds</div>
+        <ul>
+          <li><span class="var">c_wetday_p95_mm</span>, <span class="var">c_wetday_p99_mm</span></li>
+          <li><span class="var">c_rx5_rl2_mm</span>, <span class="var">c_rx5_rl25_mm</span></li>
+          <li>(all c_rx5_rl10_mm)</li>
+        </ul>
+      </div>
+      <div class="dropcard x">
+        <div class="t">X: land cover and terrain</div>
+        <ul>
+          <li><span class="var">urban_share</span>, <span class="var">developed_share</span> (impervious_mean)</li>
+          <li><span class="var">water_share</span>, <span class="var">water_km2</span> (hand_lt5_share)</li>
+          <li><span class="var">elev_mean</span>, <span class="var">slope_mean</span>, <span class="var">flat_share</span>, <span class="var">hand_mean</span> (hand_lt5_share)</li>
+        </ul>
+      </div>
+      <div class="dropcard a">
+        <div class="t">A: wetlands</div>
+        <ul>
+          <li><span class="var">wetland_change_since_1999</span> (wetland_share)</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2>In the panel, not used yet</h2>
+    <div class="dropgrid">
+      <div class="dropcard x">
+        <div class="t">Census and ACS: X</div>
+        <ul>
+          <li class="keep"><span class="var">housing_units</span>, <span class="var">population</span>, <span class="var">median_value</span></li>
+        </ul>
+      </div>
+      <div class="dropcard a">
+        <div class="t">Census and ACS: A candidates</div>
+        <ul>
+          <li class="keep"><span class="var">median_income</span>, <span class="var">poverty_rate</span></li>
+          <li class="keep"><span class="var">mobile_home_share</span>, <span class="var">built_pre1980_share</span></li>
+        </ul>
+      </div>
+      <div class="dropcard k">
+        <div class="t">Planned, not built</div>
+        <ul>
+          <li class="keep"><span class="var">policies_in_force</span>, <span class="var">buyouts_cum</span>, <span class="var">elevations_cum</span> (A)</li>
+          <li class="keep"><span class="var">soil_cd_share</span> (X)</li>
+        </ul>
+      </div>
+    </div>
+
+    <footer>The outcome columns (<code>PropertyDmgADJ</code>, <code>log_PropertyDmgADJ</code>, <code>has_damage</code>) and keys (<code>GEOID</code>, <code>year</code>, <code>split</code>) are not inputs. Labels follow HANDOFF.md: C is rain climate; terrain is susceptibility and sits in X.</footer>
+  </section>
+</main>
+</body>
+</html>

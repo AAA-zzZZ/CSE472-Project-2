@@ -1,0 +1,7 @@
+period,model,ROC-AUC,PR-AUC,Brier skill,log loss,mean P / rate,AUC within month,top 5%: share of loss,top 5%: without largest month,top 5%: median month,"rank corr, year","MAE, damaged"
+validation 2013-2016,baseline: county rate,0.6326,0.0502,0.0,0.1758,0.6898,0.6501,0.0222,0.1191,0.0,0.3408,1.0006
+validation 2013-2016,GLM hurdle,0.9152,0.4321,0.2587,0.0933,1.0063,0.8528,0.7988,0.4746,0.397,0.3719,0.7756
+validation 2013-2016,LightGBM hurdle,0.9142,0.2765,0.17,0.0995,0.8945,0.8638,0.1136,0.465,0.3247,0.4413,0.764
+test 2017-2023,baseline: county rate,0.7476,0.066,0.0,0.0908,1.3962,0.6409,0.0706,0.1235,0.0,0.347,0.9664
+test 2017-2023,GLM hurdle,0.896,0.2392,-0.0864,0.0764,2.0223,0.7904,0.7018,0.4783,0.043,0.3073,0.7808
+test 2017-2023,LightGBM hurdle,0.901,0.2906,0.051,0.0685,1.6129,0.7972,0.685,0.4488,0.1389,0.3531,0.7499
