@@ -3,12 +3,57 @@
 Read this first when picking up the project in a new session. It summarizes the
 work through 2026-11-01 on branch `enci-dev` (pull request #1 into `main`).
 
-**Newest work:** [Midwest explorer app (2026-11-13)](#midwest-explorer-app-2026-11-13).
-**Before that:** [Climate and adaptation adjustment (2026-11-10 to 2026-11-11)](#climate-and-adaptation-adjustment-2026-11-10-to-2026-11-11),
+**Newest work:** [Loss classes instead of dollars (2026-11-14)](#loss-classes-instead-of-dollars-2026-11-14).
+**Before that:** [Midwest explorer app (2026-11-13)](#midwest-explorer-app-2026-11-13), then
+[Climate and adaptation adjustment (2026-11-10 to 2026-11-11)](#climate-and-adaptation-adjustment-2026-11-10-to-2026-11-11),
 then [Latest session (2026-11-08 to 2026-11-09)](#latest-session-2026-11-08-to-2026-11-09)
 below, then `yana_workspace/HANDOFF2.md` to `HANDOFF4.md` (the teammate's sessions: 5-county
 design, Route 2 with PRISM, the PRISM refit). The sections after the latest session describe the
 original NOAA design and are kept as history.
+
+## Loss classes instead of dollars (2026-11-14)
+
+The instructor dropped the spatial model. The forecast keeps two targets, the chance of any damage
+and the size of the loss, but the size is now a **class** (order of magnitude), not dollars.
+Write-up: `Project 2/Summary Guides/loss_classes_summary.pdf`.
+
+| Class | Loss (2024 $) | Share of damage months | Share of dollars |
+|---|---|---|---|
+| 0 none | $0 | (96.8% of all county-months) | |
+| 1 minor | under $10k | 23% | <0.1% |
+| 2 moderate | $10k-$100k | 35% | 0.6% |
+| 3 major | $100k-$1M | 29% | 4.7% |
+| 4 severe | $1M or more | 13% | 94.7% |
+
+Why powers of ten: one unit of the log10 scale every model uses; the dollar model's MAE (0.83 log10,
+about 7x) cannot resolve finer classes; every class has 218+ months in each period ($10M+ would
+have 254 in all); labels need no explanation.
+
+- **`loss_class_model.py`** (new): part 1 is reduced_benchmark.py's, unchanged; part 2 is a ridge
+  **ordinal** logistic (GLM, ridge 100) or LightGBM **multiclass** (94 trees, 108 in the refit) on
+  damage months. P(class k) = P(damage) x P(k | damage). Also scores a baseline and "binned
+  dollars" (the old regressions cut at the class edges).
+  `python loss_class_model.py --out-dir results/loss_classes_midwest` (and `--state MO --out-dir results/loss_classes_missouri`).
+- **Ranking** is by `p_severe_loss` = P(damage) x P($1M+ | damage), chosen on 2013-2016 over
+  P($100k+) and the expected class.
+- **Test 2017-2023, LightGBM:** class accuracy 0.411 (binned dollars 0.404), within one class
+  0.855 (0.897), weighted kappa 0.369 (0.365). It finds 34% of minor months (binned 16%) and 33% of
+  severe (24%). Top 5% catches 0.623 of loss (dollar ranking 0.644). Part 1 unchanged (ROC-AUC 0.891).
+- **App table** (`build_midwest_app_table.py`, rebuilt; 37 columns): removed `expected_loss`,
+  `loss_if_damage`, `log10_expected_loss`; added `p_<class>_if_damage` (4), `likely_class`,
+  `p_major_or_worse`, `p_severe_loss`, `actual_class`; `rank`, `top5`, `rank_midwest` now by
+  `p_severe_loss`. The builder checks both parts against the saved scores (exact match). Each
+  state's top 5% now catches 54% of test-year loss (was 51%).
+- **`flood_explorer_app2.js`:** prediction layers are chance of any damage (default), likely
+  class, the two ranks and recorded class, with class legends. The $100k+ and $1M+ chances are not
+  mapped or shown, but stay in the table and drive the ranks. The county panel has a coloured banner
+  naming the predicted class (highest chance), then the chance of each class. The chart shows the
+  chance of any damage (left axis) and the recorded class (right axis). Syntax-checked; **not yet run
+  in the Code Editor**. The Missouri app is unchanged.
+
+Next: re-upload `midwest_flood_app_table.csv` to the asset and run the app. In 2000-2012, 19% of
+damage months were minor; in 2013-2023 it was 30%. So LightGBM over-predicts minor (35% vs 30%)
+and under-predicts severe (7% vs 11%) on the test years.
 
 ## Midwest explorer app (2026-11-13)
 

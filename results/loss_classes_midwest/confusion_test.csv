@@ -1,0 +1,13 @@
+,model,minor,moderate,major,severe
+minor,GLM: ordinal classes,114,404,140,5
+moderate,GLM: ordinal classes,72,450,191,32
+major,GLM: ordinal classes,24,282,222,55
+severe,GLM: ordinal classes,3,86,89,65
+minor,LightGBM: multiclass,228,305,98,32
+moderate,LightGBM: multiclass,168,336,195,46
+major,LightGBM: multiclass,60,191,274,58
+severe,LightGBM: multiclass,12,76,75,80
+minor,LightGBM: binned dollars,107,452,95,9
+moderate,LightGBM: binned dollars,52,464,203,26
+major,LightGBM: binned dollars,21,263,274,25
+severe,LightGBM: binned dollars,4,75,106,58

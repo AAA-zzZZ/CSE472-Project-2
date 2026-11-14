@@ -10,6 +10,10 @@
 // Adapted from missouri_tester/flood_explorer_app.js: a state selector (Missouri by default, or all 12
 // states together), the 12-state LightGBM predictions, rank within the state and across the Midwest,
 // and colour ranges set from the Midwest table (1st to 99th percentile).
+//
+// Loss is predicted as a class (order of magnitude), not in dollars (loss_class_model.py):
+// minor under $10k, moderate $10k-$100k, major $100k-$1M, severe $1M or more. Counties are ranked by
+// the chance of a severe loss, P(damage) x P($1M or more | damage).
 
 var ASSET_ID = 'projects/flood-513221/assets/midwest_flood_app_table';
 
@@ -72,6 +76,13 @@ var NLCD_NAMES = ['Open water', 'Perennial ice/snow', 'Developed, open space', '
   'Developed, medium', 'Developed, high', 'Barren', 'Deciduous forest', 'Evergreen forest',
   'Mixed forest', 'Shrub/scrub', 'Grassland', 'Pasture/hay', 'Cultivated crops', 'Woody wetlands',
   'Emergent wetlands'];
+var NLCD_CLASSES = {names: NLCD_NAMES, colors: NLCD_COLORS};
+// loss classes 1-4 (0 = no damage); the same edges as loss_class_model.py
+var LOSS_NAMES = ['No damage', 'Minor (under $10k)', 'Moderate ($10k to $100k)', 'Major ($100k to $1M)',
+  'Severe ($1M or more)'];
+var LOSS_KEYS = ['none', 'minor', 'moderate', 'major', 'severe'];
+var LOSS_COLORS = ['#fed976', '#fd8d3c', '#e31a1c', '#800026'];
+var LOSS_CLASSES = {names: LOSS_NAMES.slice(1), colors: LOSS_COLORS};
 
 // ---------- Number formats ----------
 function usd(v) {
@@ -80,9 +91,10 @@ function usd(v) {
   if (v >= 1e3) { return '$' + (v / 1e3).toFixed(0) + 'k'; }
   return '$' + v.toFixed(0);
 }
-function usdLog(v) { return usd(Math.pow(10, v)); }
 function plain(v) { return String(Math.round(v * 1000) / 1000); }
 function pct(v) { return (v * 100).toFixed(0) + '%'; }
+// one decimal below 10%, where most chances of a large loss sit
+function pct1(v) { return v < 0.1 ? (v * 100).toFixed(1) + '%' : pct(v); }
 function per100(v) { return (v * 100).toFixed(1); }
 
 // ---------- Source datasets (the same IDs and bands as the export scripts) ----------
@@ -133,9 +145,10 @@ function hand() { return ee.Image('MERIT/Hydro/v1_0_1').select('hnd'); }
 // ---------- Layer catalogue ----------
 // county layers colour each county by a column of the table; raster layers show the source data.
 // Colour ranges are the 1st to 99th percentile of the Midwest table (build_midwest_app_table.py).
-function county(prop, min, max, palette, fmt, unit, note, maskZero) {
+// classes: {names, colors} for a categorical layer whose values run min, min + 1, ..., max
+function county(prop, min, max, palette, fmt, unit, note, maskZero, classes) {
   return {type: 'county', prop: prop, min: min, max: max, palette: palette, fmt: fmt, unit: unit,
-          note: note, maskZero: !!maskZero};
+          note: note, maskZero: !!maskZero, classes: classes};
 }
 function raster(image, min, max, palette, unit, note, scale, maskZero, classes) {
   return {type: 'raster', image: image, min: min, max: max, palette: palette, fmt: plain, unit: unit,
@@ -144,17 +157,19 @@ function raster(image, min, max, palette, unit, note, scale, maskZero, classes) 
 
 var GROUPS = {
   'Model predictions': {
-    'Expected loss': county('log10_expected_loss', 2, 7, HEAT, usdLog, '2024 dollars, log colour scale',
-      'Chance of damage x expected size of the loss.'),
     'Chance of any damage': county('p_damage', 0, 0.6, HEAT, pct, 'probability',
       'LightGBM part 1: the chance the county records any flood damage that month.'),
+    'Likely loss class if damage occurs': county('likely_class', 1, 4, LOSS_COLORS, plain, 'class',
+      'LightGBM part 2: the most likely of the four loss classes, if the county has any damage. ' +
+      'Read it with the chance of any damage: most counties have little chance of damage in most months.',
+      false, LOSS_CLASSES),
     // max is the number of counties in the selected state (largest state when all are shown)
-    'Rank within the state': county('rank', 1, 'stateCount', HEAT.slice().reverse(), plain, '1 = highest expected loss',
-      'Counties ordered by expected loss within their own state in the selected month.'),
+    'Rank within the state': county('rank', 1, 'stateCount', HEAT.slice().reverse(), plain, '1 = highest risk',
+      'Counties ordered by the chance of a severe loss within their own state in the selected month.'),
     'Rank across the Midwest': county('rank_midwest', 1, N_MIDWEST, HEAT.slice().reverse(), plain,
-      '1 = highest expected loss of 1,055', 'All 1,055 counties of the 12 states ordered by expected loss in the selected month.'),
-    'Recorded loss (SHELDUS)': county('log10_actual_loss', 3, 8, PURPLE, usdLog, '2024 dollars, log colour scale',
-      'What was recorded. Blank counties have no SHELDUS record that month.', true)
+      '1 = highest risk of 1,055', 'All 1,055 counties of the 12 states ordered by the chance of a severe loss in the selected month.'),
+    'Recorded loss class (SHELDUS)': county('actual_class', 1, 4, LOSS_COLORS, plain, 'class',
+      'What was recorded, as a loss class. Blank counties have no SHELDUS record that month.', true, LOSS_CLASSES)
   },
   'Model inputs (county values)': {
     'Monthly rain': county('p_month', 0, 300, BLUE, plain, 'mm', 'p_month, from PRISM. Same month as the prediction.'),
@@ -219,7 +234,7 @@ var GROUPS = {
   },
   'NLCD': {
     'Land cover': raster(function (y) { return landCover(y - 1).remap(NLCD_VALUES, ee.List.sequence(0, 15)); },
-      0, 15, NLCD_COLORS, 'class', 'Annual NLCD, year - 1.', 30, false, true),
+      0, 15, NLCD_COLORS, 'class', 'Annual NLCD, year - 1.', 30, false, NLCD_CLASSES),
     'Impervious surface': raster(function (y) {
       return nlcdYear('projects/sat-io/open-datasets/USGS/ANNUAL_NLCD/FRACTIONAL_IMPERVIOUS_SURFACE', y - 1);
     }, 0, 80, HEAT, '%', 'Annual NLCD, year - 1.', 30, true),
@@ -268,7 +283,7 @@ var groupSelect = ui.Select({items: Object.keys(GROUPS), value: 'Model predictio
     layerSelect.setValue(names[0], false);
     redraw();
   }, style: {stretch: 'horizontal'}});
-var layerSelect = ui.Select({items: Object.keys(GROUPS['Model predictions']), value: 'Expected loss',
+var layerSelect = ui.Select({items: Object.keys(GROUPS['Model predictions']), value: 'Chance of any damage',
   onChange: redraw, style: {stretch: 'horizontal'}});
 var yearSelect = ui.Select({items: YEARS.map(function (y) { return {label: String(y), value: y}; }),
   value: 2017, onChange: redraw});
@@ -298,8 +313,8 @@ var statusLabel = ui.Label('Click a county on the map.', {margin: '4px 8px'});
 var panel = ui.Panel({
   widgets: [
     titleLabel,
-    ui.Label('Predicted monthly flood property loss for the 12 Midwest states, used to rank counties ' +
-      'for emergency resources, with the data behind the model.', {margin: '2px 8px'}),
+    ui.Label('Predicted monthly flood property loss class for the 12 Midwest states, used to rank ' +
+      'counties for emergency resources, with the data behind the model.', {margin: '2px 8px'}),
     ui.Label('State', HEADER), stateSelect,
     ui.Label('Layer', HEADER), groupSelect, layerSelect,
     ui.Label('The PRISM, ERA5-Land, GHSL, NLCD and Terrain maps are for reference and are not the ' +
@@ -315,10 +330,14 @@ var panel = ui.Panel({
     ui.Label('County', HEADER), statusLabel, detail, chartPanel,
     ui.Label('About the predictions', HEADER),
     ui.Label('One LightGBM hurdle model fitted on all 1,055 counties of the 12 states for 2000-2016 ' +
-      '(the state is one of its inputs) and shown for 2017-2023. Predictions were computed outside ' +
-      'Earth Engine and uploaded as a table.', SMALL),
-    ui.Label('Predictions use the rain observed that month, so they are not true forecasts. ' +
-      'Dollar amounts are typically off by several times: use them to compare counties.', SMALL)
+      '(the state is one of its inputs) and shown for 2017-2023. Part 1 gives the chance of any ' +
+      'damage; part 2 gives the chance of each loss class if damage occurs. Predictions were ' +
+      'computed outside Earth Engine and uploaded as a table.', SMALL),
+    ui.Label('Loss classes are orders of magnitude: minor under $10k, moderate $10k to $100k, major ' +
+      '$100k to $1M, severe $1M or more (2024 dollars). The model does not predict dollar amounts: ' +
+      'in 2017-2023 its most likely class was right for 41% of damage months and within one class ' +
+      'for 86%.', SMALL),
+    ui.Label('Predictions use the rain observed that month, so they are not true forecasts.', SMALL)
   ],
   style: {width: '380px', padding: '4px'}
 });
@@ -380,9 +399,9 @@ function layerImage(layer, joined) {
 function drawLegend(layer) {
   legend.clear();
   if (layer.classes) {
-    NLCD_NAMES.forEach(function (name, i) {
+    layer.classes.names.forEach(function (name, i) {
       legend.add(ui.Panel([
-        ui.Label('', {backgroundColor: NLCD_COLORS[i], padding: '7px', margin: '2px 6px 2px 8px'}),
+        ui.Label('', {backgroundColor: layer.classes.colors[i], padding: '7px', margin: '2px 6px 2px 8px'}),
         ui.Label(name, {fontSize: '11px', margin: '2px 0'})
       ], ui.Panel.Layout.flow('horizontal')));
     });
@@ -459,12 +478,28 @@ function showCounty() {
     }
     statusLabel.setValue(label + ', ' + MONTHS[monthSelect.getValue() - 1] + ' ' + yearSelect.getValue());
     detail.add(section('Prediction'));
-    detail.add(row('Chance of any damage', pct(r.p_damage)));
-    detail.add(row('Expected loss', usd(r.expected_loss)));
-    detail.add(row('Loss if damage occurs', usd(r.loss_if_damage)));
+    detail.add(row('Chance of any damage', pct1(r.p_damage)));
     detail.add(row('Rank in ' + st.name, r.rank + ' of ' + st.n + (r.top5 ? ' (top 5%)' : '')));
     detail.add(row('Rank in the Midwest', r.rank_midwest + ' of ' + N_MIDWEST.toLocaleString()));
-    detail.add(row('Recorded loss (SHELDUS)', r.has_damage ? usd(r.actual_loss) : 'None recorded'));
+    // the predicted class is the one with the highest chance, shown first as a coloured banner
+    var chances = [null];
+    var best = 1;
+    for (var k = 1; k <= 4; k++) {
+      chances.push(r['p_' + LOSS_KEYS[k] + '_if_damage']);
+      if (chances[k] > chances[best]) { best = k; }
+    }
+    detail.add(section('If damage occurs'));
+    detail.add(ui.Label('Predicted loss class: ' + LOSS_NAMES[best] + ' (' + pct(chances[best]) + ' chance)', {
+      fontWeight: 'bold', fontSize: '13px', padding: '6px', margin: '4px 8px',
+      backgroundColor: LOSS_COLORS[best - 1], color: best >= 3 ? '#ffffff' : '#000000'
+    }));
+    detail.add(ui.Label('Chance of each class:', {fontSize: '11px', color: '#555555', margin: '4px 8px 0 8px'}));
+    for (k = 1; k <= 4; k++) {
+      detail.add(row((k === best ? '▶ ' : '    ') + LOSS_NAMES[k], pct(chances[k])));
+    }
+    detail.add(section('Recorded (SHELDUS)'));
+    detail.add(row('Loss class', LOSS_NAMES[r.actual_class]));
+    if (r.has_damage) { detail.add(row('Amount', usd(r.actual_loss))); }
     detail.add(section('Model inputs'));
     detail.add(row('Monthly rain', plain(r.p_month) + ' mm'));
     detail.add(row('Wettest 5 days / 10-year level', plain(r.rx5_rl_ratio)));
@@ -488,16 +523,19 @@ function showCounty() {
     showRasterMean(mine);
   });
 
+  // chances on the left axis; the recorded class on the right, whose window starts at 0.5 so
+  // months without damage (class 0) are not drawn
   var chart = ui.Chart.feature.byFeature({features: mineRows.sort('ym'), xProperty: 'ym_label',
-    yProperties: ['log10_expected_loss', 'log10_actual_loss']})
+    yProperties: ['p_damage', 'actual_class']})
     .setChartType('LineChart')
     .setOptions({
-      title: 'Loss by month (log10 dollars; 3 = $1k, 6 = $1M)',
+      title: 'Chance of any damage (left) and recorded loss class (right: 1 minor to 4 severe)',
       legend: {position: 'bottom'},
       hAxis: {showTextEvery: 12, textStyle: {fontSize: 10}},
-      vAxis: {viewWindow: {min: 1, max: 8}},
-      series: {0: {labelInLegend: 'Predicted expected loss', color: '#e31a1c', lineWidth: 2, pointSize: 0},
-               1: {labelInLegend: 'Recorded loss', color: '#3f007d', lineWidth: 0, pointSize: 5}}
+      vAxes: {0: {viewWindow: {min: 0, max: 1}, format: 'percent'},
+              1: {viewWindow: {min: 0.5, max: 4.5}, ticks: [1, 2, 3, 4]}},
+      series: {0: {labelInLegend: 'Chance of any damage', color: '#fd8d3c', lineWidth: 2, pointSize: 0, targetAxisIndex: 0},
+               1: {labelInLegend: 'Recorded loss class', color: '#3f007d', lineWidth: 0, pointSize: 5, targetAxisIndex: 1}}
     });
   chartPanel.add(chart);
 }

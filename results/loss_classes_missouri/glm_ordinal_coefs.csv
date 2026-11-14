@@ -1,0 +1,13 @@
+,coef (log-odds of a higher class)
+log_p_month,0.6044
+rx5_rl_ratio,0.5478
+log_snowmelt_mm,0.1636
+frost_days,0.0494
+sm_root_pct,0.4489
+log_swe_mm,-0.4311
+c_rx5_rl10_mm,0.0844
+log_built_surface,0.467
+impervious_mean,0.0026
+hand_lt5_share,-0.1099
+log_land_km2,0.1995
+wetland_share,-0.1193

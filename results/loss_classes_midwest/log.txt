@@ -1,0 +1,127 @@
+panel: model_panel.csv, state: all, 1055 counties
+class edges: none = No damage, minor = Under $10k, moderate = $10k to $100k, major = $100k to $1M, severe = $1M or more
+
+county-months per class:
+col_0                   none  minor  moderate  major  severe
+row_0                                                       
+fit 2000-2012         158624   1141      2127   1869     819
+validation 2013-2016   48985    506       531    400     218
+test 2017-2023         86386    663       745    583     243
+
+share of damage months per class:
+col_0                 minor  moderate  major  severe
+row_0                                               
+fit 2000-2012         0.192     0.357  0.314   0.138
+validation 2013-2016  0.306     0.321  0.242   0.132
+test 2017-2023        0.297     0.333  0.261   0.109
+
+ordinal GLM ridge search on 2013-2016:
+        class log loss
+ridge                 
+0.1             1.2691
+1.0             1.2689
+10.0            1.2680
+100.0           1.2643
+1000.0          1.2695
+chosen: 100.0
+part 1 and dollar GLM ridges (as reduced_benchmark.py): 100.0, 100.0
+
+LightGBM trees chosen on 2013-2016: part 1 475, dollars 380, classes 94
+
+test confusion, GLM: ordinal classes (rows recorded, columns predicted; damage months):
+          minor  moderate  major  severe
+minor       114       404    140       5
+moderate     72       450    191      32
+major        24       282    222      55
+severe        3        86     89      65
+
+test confusion, LightGBM: multiclass (rows recorded, columns predicted; damage months):
+          minor  moderate  major  severe
+minor       228       305     98      32
+moderate    168       336    195      46
+major        60       191    274      58
+severe       12        76     75      80
+
+test confusion, LightGBM: binned dollars (rows recorded, columns predicted; damage months):
+          minor  moderate  major  severe
+minor       107       452     95       9
+moderate     52       464    203      26
+major        21       263    274      25
+severe        4        75    106      58
+
+ordinal GLM, per 1 std of each input (positive = larger loss class):
+                   coef (log-odds of a higher class)
+log_p_month                                    0.017
+rx5_rl_ratio                                   0.584
+log_snowmelt_mm                                0.102
+frost_days                                    -0.043
+sm_root_pct                                    0.135
+log_swe_mm                                     0.120
+c_rx5_rl10_mm                                  0.039
+log_built_surface                              0.421
+impervious_mean                               -0.077
+hand_lt5_share                                -0.031
+log_land_km2                                  -0.041
+wetland_share                                 -0.052
+thresholds (log-odds): [-1.517  0.339  2.218]
+
+mean P(class | damage), LightGBM test: minor 0.351, moderate 0.382, major 0.201, severe 0.066
+refit trees: part 1 546, dollars 436, classes 108
+
+part 1 (any damage), every county-month:
+                                               ROC-AUC  PR-AUC  Brier skill
+period               model                                                 
+validation 2013-2016 baseline: county rate       0.744   0.091        0.000
+                     GLM: ordinal classes        0.884   0.284        0.121
+                     GLM: binned dollars         0.884   0.284        0.121
+                     LightGBM: multiclass        0.900   0.316        0.134
+                     LightGBM: binned dollars    0.900   0.316        0.134
+test 2017-2023       baseline: county rate       0.728   0.066        0.000
+                     GLM: ordinal classes        0.865   0.206        0.098
+                     GLM: binned dollars         0.865   0.206        0.098
+                     LightGBM: multiclass        0.891   0.265        0.134
+                     LightGBM: binned dollars    0.891   0.265        0.134
+
+part 2 (loss class), damage months only:
+                                               class log loss  RPS, damaged  accuracy  within one class  MAE, classes  weighted kappa
+period               model                                                                                                           
+validation 2013-2016 baseline: county rate              1.329         0.172     0.355             0.853         0.810           0.287
+                     GLM: ordinal classes               1.264         0.167     0.365             0.900         0.738           0.399
+                     GLM: binned dollars                  NaN           NaN     0.352             0.899         0.751           0.350
+                     LightGBM: multiclass               1.216         0.159     0.424             0.879         0.709           0.448
+                     LightGBM: binned dollars             NaN           NaN     0.410             0.902         0.691           0.442
+test 2017-2023       baseline: county rate              1.357         0.176     0.364             0.841         0.820           0.277
+                     GLM: ordinal classes               1.279         0.168     0.381             0.870         0.752           0.332
+                     GLM: binned dollars                  NaN           NaN     0.368             0.886         0.749           0.295
+                     LightGBM: multiclass               1.259         0.164     0.411             0.855         0.754           0.369
+                     LightGBM: binned dollars             NaN           NaN     0.404             0.897         0.705           0.365
+
+all rows and ranking (classes: ranked by P(severe); binned dollars: by expected dollars):
+                                               RPS, all rows  RPS skill  top 5%: share of loss  top 5%: without largest month  top 5%: major+ months caught
+period               model                                                                                                                                 
+validation 2013-2016 baseline: county rate             0.018      0.000                  0.057                          0.092                         0.110
+                     GLM: ordinal classes              0.016      0.107                  0.742                          0.719                         0.468
+                     GLM: binned dollars                 NaN        NaN                  0.741                          0.717                         0.456
+                     LightGBM: multiclass              0.016      0.123                  0.718                          0.660                         0.450
+                     LightGBM: binned dollars            NaN        NaN                  0.719                          0.671                         0.445
+test 2017-2023       baseline: county rate             0.014      0.000                  0.236                          0.297                         0.136
+                     GLM: ordinal classes              0.013      0.075                  0.613                          0.748                         0.393
+                     GLM: binned dollars                 NaN        NaN                  0.612                          0.747                         0.390
+                     LightGBM: multiclass              0.013      0.103                  0.623                          0.776                         0.413
+                     LightGBM: binned dollars            NaN        NaN                  0.644                          0.803                         0.416
+
+ranking score options (choose on validation):
+                                                             top 5%: share of loss  top 5%: without largest month  top 5%: major+ months caught
+period               model                rank by                                                                                              
+validation 2013-2016 GLM: ordinal classes P(major or worse)                  0.633                          0.666                         0.456
+                                          P(severe)                          0.742                          0.719                         0.468
+                                          expected class                     0.573                          0.560                         0.453
+                     LightGBM: multiclass P(major or worse)                  0.584                          0.560                         0.458
+                                          P(severe)                          0.718                          0.660                         0.450
+                                          expected class                     0.585                          0.561                         0.458
+test 2017-2023       GLM: ordinal classes P(major or worse)                  0.619                          0.755                         0.393
+                                          P(severe)                          0.613                          0.748                         0.393
+                                          expected class                     0.574                          0.696                         0.390
+                     LightGBM: multiclass P(major or worse)                  0.592                          0.726                         0.400
+                                          P(severe)                          0.623                          0.776                         0.413
+                                          expected class                     0.525                          0.644                         0.397
