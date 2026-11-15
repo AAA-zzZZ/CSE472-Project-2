@@ -34,6 +34,21 @@ model: the one-pager's outcome log10(loss) is not defined for zero-loss months.
 
 This is a regression for interpretation, not a forecast, so there is no train/test split.
 
+--outcome classes (added 2026-11-15, after the instructor's note that zero-loss storm months
+should not be dropped): the same five models as an ordered logit on the loss class of every
+storm month, damaged or not.
+  * Rows: county-months in 2011-2023 whose storm reached --storm-min (default 0.5) of the
+    county's 10-year 5-day rain level, i.e. rx5_rl_ratio >= 0.5. Zero-loss months stay in.
+  * Outcome: loss class 0 none, 1 under $10k, 2 $10k-$100k, 3 $100k-$1M, 4 $1M or more (the
+    edges of loss_class_model.py).
+  * P(class > k) = logistic(X b - cut_k): one set of coefficients for every cut (proportional
+    odds). A coefficient b raises the log-odds of a higher class by b per unit, so exp(b) is
+    an odds ratio. Fitted by maximum likelihood; standard errors clustered by county (CR1).
+  * --compare <coefs.csv of a dollars run> writes comparison.csv: each term of M3 and M4 in
+    both versions, with sign agreement and whether each is clearly different from zero.
+  * --po-check writes po_check.csv: M3 and M4 refitted as yes/no logits at three cuts (any
+    loss, $100k+, $1M+), with a clustered Wald test that each term's three slopes are equal.
+
 Input : model_panel.csv from merge_panel.py (PRISM climate, GHSL, census and NFIP tables)
 Output, in --out-dir:
   coefs.csv         every coefficient of every model, with clustered SE and 95% interval
@@ -46,6 +61,8 @@ Output, in --out-dir:
 Usage:
     python adjustment_models.py --drop log_snowmelt_mm --out-dir results/adjustment_midwest
     python adjustment_models.py --state MO --drop log_snowmelt_mm --out-dir results/adjustment_missouri
+    python adjustment_models.py --outcome classes --drop log_snowmelt_mm \
+        --compare results/adjustment_midwest/coefs.csv --out-dir results/adjustment_classes_midwest
   log_snowmelt_mm is dropped because it correlates above 0.8 with log_swe_mm and frost_days.
 """
 
@@ -55,6 +72,8 @@ import sys
 
 import numpy as np
 import pandas as pd
+from scipy.optimize import minimize
+from scipy.special import expit
 
 TARGET = "log_PropertyDmgADJ"
 STATES = {"17": "IL", "18": "IN", "19": "IA", "20": "KS", "26": "MI", "27": "MN",
@@ -81,6 +100,10 @@ MAIN_A = "nfip_policies_per_hu"          # the adaptation variable used in the r
 LESS_PREPARED = {"built_pre1980_share"}  # adaptation variables where higher means less prepared
 STEP = 0.1                               # storm step quoted in the report sentences
 Z = 1.96
+CLASS = "loss_class"                     # --outcome classes
+EDGES = [1e4, 1e5, 1e6]                  # class edges in 2024 dollars, as loss_class_model.py
+CLASS_NAMES = ["none", "minor", "moderate", "major", "severe"]
+MAJOR = 3                                # damage curves: chance of a $100k+ loss
 
 
 class Tee:
@@ -100,7 +123,7 @@ class Tee:
 # ---------------------------------------------------------------
 # data
 # ---------------------------------------------------------------
-def load(path, state, extras, drop):
+def load(path, state, extras, drop, outcome="dollars", storm_min=0.5):
     data = pd.read_csv(path, dtype={"GEOID": str})
     data["GEOID"] = data["GEOID"].str.zfill(5)
     data["state"] = data["GEOID"].str[:2].map(STATES)
@@ -119,7 +142,14 @@ def load(path, state, extras, drop):
         raise SystemExit(f"{absent} not in {path}. Rebuild it with merge_panel.py after "
                          "census_features.py, ghsl_features.py and openfema_features.py.")
 
-    data = data[(data["has_damage"] == 1) & data["year"].between(*YEARS)].copy()
+    if outcome == "classes":
+        data = data[data["year"].between(*YEARS) & (data[STORM] >= storm_min)].copy()
+        data[CLASS] = np.where(data["has_damage"] == 1,
+                               np.digitize(data["PropertyDmgADJ"].to_numpy(), EDGES) + 1, 0)
+        what = f"storm months (rx5_rl_ratio >= {storm_min})"
+    else:
+        data = data[(data["has_damage"] == 1) & data["year"].between(*YEARS)].copy()
+        what = "damage months"
     data[CLIMATE] = data["c_rx5_rl10_mm"] / 10
     data["log_median_income"] = np.log(data["median_income"])
     for col in ["p_month", "swe_mm", "snowmelt_mm"]:
@@ -147,9 +177,9 @@ def load(path, state, extras, drop):
         raise SystemExit("no adaptation variable left after --drop")
 
     # same rows in every model: complete cases on the full M4 set
-    cols = [TARGET, STORM, EXPOSURE, CLIMATE] + adapt + rest
+    cols = [CLASS if outcome == "classes" else TARGET, STORM, EXPOSURE, CLIMATE] + adapt + rest
     finite = np.isfinite(data[cols].to_numpy(dtype=float)).all(axis=1)
-    print(f"damage months {YEARS[0]}-{YEARS[1]}: {len(data):,}; "
+    print(f"{what} {YEARS[0]}-{YEARS[1]}: {len(data):,}; "
           f"dropped {(~finite).sum():,} with a missing or infinite input")
     if (~finite).any():
         bad = (~np.isfinite(data.loc[~finite, cols].to_numpy(dtype=float))).sum(axis=0)
@@ -159,6 +189,19 @@ def load(path, state, extras, drop):
         raise SystemExit("no rows left")
     print(f"adaptation (A): {adapt}")
     print(f"rest (every model): {rest}")
+    if outcome == "classes":
+        # a calendar month with no damaged storm month predicts "no loss" perfectly: its
+        # indicator runs off to minus infinity and has no standard error, so leave those rows
+        # out (as logistic regression software does); with all 12 states every month has damage
+        dry = data.groupby("month")[CLASS].max()
+        dry = sorted(dry[dry == 0].index)
+        if dry:
+            print(f"left out {int(data['month'].isin(dry).sum()):,} storm months in calendar month(s) "
+                  f"{dry}: none of them had any loss")
+            data = data[~data["month"].isin(dry)].reset_index(drop=True)
+        counts = data[CLASS].value_counts().reindex(range(5), fill_value=0)
+        print("loss classes: " + ", ".join(f"{k} {CLASS_NAMES[k]} {n:,} ({n / len(data):.1%})"
+                                            for k, n in counts.items()))
 
     # scale each adaptation variable to mean 0, std 1 on the fitted rows, so a and d are per
     # 1 std and b1 in M4 is the storm effect in a county of average adaptation
@@ -185,7 +228,7 @@ def check_correlations(data, cols, limit):
 # ---------------------------------------------------------------
 # regression
 # ---------------------------------------------------------------
-def design(data, spec, adapt, rest, states):
+def design(data, spec, adapt, rest, states, const=True):
     cols = [STORM, EXPOSURE]
     if spec["climate"]:
         cols.append(CLIMATE)
@@ -200,7 +243,8 @@ def design(data, spec, adapt, rest, states):
     for s in states[1:]:
         X[f"st_{s}"] = (data["state"] == s).astype(float)
     X = X.loc[:, X.std() > 0]            # a month with no damage rows in a small state
-    X.insert(0, "const", 1.0)
+    if const:                            # the ordered logit's cut points take its place
+        X.insert(0, "const", 1.0)
     return X
 
 
@@ -222,23 +266,102 @@ def ols_cluster(X, y, groups):
     return pd.Series(beta, X.columns), pd.Series(se, X.columns), pd.DataFrame(V, X.columns, X.columns), r2
 
 
-def fit_all(data, adapt, rest):
+def _ordinal_scores(theta, A, y, n_cut):
+    """Per-row derivatives of the log-likelihood (n x params) and the log-likelihood."""
+    k = A.shape[1]
+    beta, cut = theta[:k], theta[k:]
+    eta = A @ beta
+    hi = np.where(y < n_cut, cut[np.minimum(y, n_cut - 1)] - eta, np.inf)
+    lo = np.where(y > 0, cut[np.maximum(y - 1, 0)] - eta, -np.inf)
+    Fh, Fl = expit(hi), expit(lo)
+    p = np.clip(Fh - Fl, 1e-300, None)
+    fh, fl = Fh * (1 - Fh), Fl * (1 - Fl)
+    S = np.zeros((len(y), k + n_cut))
+    S[:, :k] = A * ((fl - fh) / p)[:, None]
+    rows = np.arange(len(y))
+    up, down = y < n_cut, y > 0
+    S[rows[up], k + y[up]] += fh[up] / p[up]
+    S[rows[down], k + y[down] - 1] -= fl[down] / p[down]
+    return S, np.log(p).sum()
+
+
+def ordered_logit_cluster(X, y, groups, n_class=5, parts=False):
+    """Proportional-odds ordered logit, P(y > j) = logistic(X b - cut_j), by maximum likelihood,
+    with county-clustered (CR1) standard errors. Fitted on standardized columns, then mapped
+    back to the original units (b per unit of each column; cuts on the raw scale)."""
+    A0, y = X.to_numpy(dtype=float), np.asarray(y, dtype=int)
+    m, sd = A0.mean(axis=0), A0.std(axis=0)
+    A = (A0 - m) / sd
+    n, k = A.shape
+    n_cut = n_class - 1
+    share = np.bincount(y, minlength=n_class) / n
+    if (share == 0).any():
+        raise SystemExit(f"loss class with no rows: {share.round(4).tolist()}")
+    start = np.concatenate([np.zeros(k), np.log(np.cumsum(share)[:-1] / (1 - np.cumsum(share)[:-1]))])
+
+    def nll(theta):
+        S, ll = _ordinal_scores(theta, A, y, n_cut)
+        return -ll, -S.sum(axis=0)
+
+    res = minimize(nll, start, jac=True, method="BFGS", options={"gtol": 1e-6, "maxiter": 5000})
+    theta = res.x
+    if not res.success and np.abs(res.jac).max() > 1e-3:
+        raise SystemExit(f"ordered logit did not converge: {res.message}")
+    if np.any(np.diff(theta[k:]) <= 0):
+        raise SystemExit("ordered logit cut points are not increasing")
+    # Hessian of the negative log-likelihood by central differences of the analytic gradient
+    H = np.zeros((k + n_cut, k + n_cut))
+    for j in range(k + n_cut):
+        h = 1e-5 * (1 + abs(theta[j]))
+        e = np.zeros_like(theta)
+        e[j] = h
+        H[:, j] = (nll(theta + e)[1] - nll(theta - e)[1]) / (2 * h)
+    H = (H + H.T) / 2
+    bread = np.linalg.inv(H)
+    S, ll = _ordinal_scores(theta, A, y, n_cut)
+    G = pd.DataFrame(S).groupby(np.asarray(groups)).sum()
+    if parts:                            # for the proportional-odds check: stacked covariances
+        return dict(theta=theta, bread=bread, G=G, names=list(X.columns), k=k,
+                    T=np.vstack([np.hstack([np.diag(1 / sd), np.zeros((k, n_cut))]),
+                                 np.hstack([(m / sd)[None, :].repeat(n_cut, 0), np.eye(n_cut)])]))
+    G = G.to_numpy()
+    g = G.shape[0]
+    Vz = bread @ (G.T @ G) @ bread * (g / (g - 1))
+    # back to raw units: b = bz / sd; cut = cut_z + sum(m * b)
+    T = np.zeros((k + n_cut, k + n_cut))
+    T[:k, :k] = np.diag(1 / sd)
+    T[k:, :k] = (m / sd)[None, :]
+    T[k:, k:] = np.eye(n_cut)
+    est, V = T @ theta, T @ Vz @ T.T
+    ll0 = (np.bincount(y, minlength=n_class) * np.log(share)).sum()
+    names = list(X.columns) + [f"cut_{j}|{j + 1}" for j in range(n_cut)]
+    return (pd.Series(est, names), pd.Series(np.sqrt(np.diag(V)), names),
+            pd.DataFrame(V, names, names), 1 - ll / ll0)
+
+
+def fit_all(data, adapt, rest, outcome="dollars"):
     states = sorted(data["state"].unique())
     rows, fits = [], {}
     for name, spec in MODELS.items():
-        X = design(data, spec, adapt, rest, states)
-        b, se, V, r2 = ols_cluster(X, data[TARGET], data["GEOID"])
+        if outcome == "classes":
+            X = design(data, spec, adapt, rest, states, const=False)
+            b, se, V, r2 = ordered_logit_cluster(X, data[CLASS], data["GEOID"])
+            fit_label = "McFadden pseudo-R2"
+        else:
+            X = design(data, spec, adapt, rest, states)
+            b, se, V, r2 = ols_cluster(X, data[TARGET], data["GEOID"])
+            fit_label = "R2"
         fits[name] = dict(X=X, b=b, V=V)
         print(f"{name}: {len(X):,} rows, {data['GEOID'].nunique()} counties, {X.shape[1]} terms, "
-              f"R2 {r2:.3f}")
-        for term in X.columns:
+              f"{fit_label} {r2:.3f}")
+        for term in b.index:
             rows.append(dict(model=name, term=term, coef=b[term], se=se[term],
                              ci_lo=b[term] - 1.96 * se[term], ci_hi=b[term] + 1.96 * se[term],
                              z=b[term] / se[term], n=len(X), n_counties=data["GEOID"].nunique(), r2=r2))
     return pd.DataFrame(rows), fits
 
 
-def summary_table(coefs, adapt):
+def summary_table(coefs, adapt, units="loss in log10 dollars"):
     """The one-pager's Step 3 table: b1, b2, c and each d, with SE, one column per model."""
     labels = {STORM: "b1 storm", EXPOSURE: "b2 exposure", CLIMATE: "c climate (per 10 mm)"}
     labels.update({f"{STORM}:{a}": f"d storm x {a}" for a in adapt})
@@ -254,7 +377,7 @@ def summary_table(coefs, adapt):
     for m in shown.columns:
         shown[m] = [("" if pd.isna(e) else f"{e:.3f} ({s:.3f})") for e, s in zip(est[m], se[m])]
     shown.index = out.index
-    print("\ncoefficients (clustered SE); adaptation per 1 std, loss in log10 dollars")
+    print(f"\ncoefficients (clustered SE); adaptation per 1 std, {units}")
     print(shown.to_string())
     return out
 
@@ -347,10 +470,140 @@ def report(coefs, adapt):
         print(f"  M4, no clear effect on storm damage: {', '.join(quiet)}.")
 
 
+PO_CUTS = [(1, "any loss"), (3, "$100k+"), (4, "$1M+")]
+
+
+def po_check(data, adapt, rest, coefs, out_dir):
+    """Proportional-odds check: M3 and M4 refitted as three yes/no logits (class >= 1, >= 3,
+    >= 4). For each term, the three slopes and a Wald test that they are equal (2 df), with
+    the cross-model covariance from stacked, county-clustered scores (a clustered Brant test).
+    A calendar month with no event at a cut is left out of that cut's fit (its indicator
+    would have no finite coefficient); its rows then add nothing to the scores."""
+    states = sorted(data["state"].unique())
+    groups = np.asarray(data["GEOID"])
+    clusters = pd.Index(sorted(set(groups)))
+    g = len(clusters)
+    ordinal = coefs.set_index(["model", "term"])
+    rows = []
+    for model in ["M3", "M4"]:
+        X = design(data, MODELS[model], adapt, rest, states, const=False)
+        fits = []
+        for cut, label in PO_CUTS:
+            y = (data[CLASS].to_numpy() >= cut).astype(int)
+            months = data.groupby("month")[CLASS].apply(lambda c: (c >= cut).sum())
+            keep = ~data["month"].isin(months[months == 0].index).to_numpy()
+            Xk = X[keep]
+            Xk = Xk.loc[:, Xk.std() > 0]
+            if (~keep).any():
+                print(f"  {model}, {label}: left out {int((~keep).sum()):,} rows in calendar month(s) "
+                      f"{sorted(months[months == 0].index)} with no event")
+            f = ordered_logit_cluster(Xk, y[keep], groups[keep], n_class=2, parts=True)
+            f["G"] = f["G"].reindex(clusters, fill_value=0.0).to_numpy()
+            fits.append(f)
+        terms = [t for t in X.columns if not t.startswith(("m_", "st_"))
+                 and all(t in f["names"] for f in fits)]
+
+        def raw_cov(fa, fb):
+            v = fa["bread"] @ (fa["G"].T @ fb["G"]) @ fb["bread"].T * (g / (g - 1))
+            return fa["T"] @ v @ fb["T"].T
+
+        est = [f["T"] @ f["theta"] for f in fits]
+        cov = [[raw_cov(fa, fb) for fb in fits] for fa in fits]
+        for t in terms:
+            idx = [f["names"].index(t) for f in fits]
+            b = np.array([est[j][idx[j]] for j in range(3)])
+            V = np.array([[cov[i][j][idx[i], idx[j]] for j in range(3)] for i in range(3)])
+            D = np.array([[1, -1, 0], [0, 1, -1]])
+            diff = D @ b
+            chi2 = float(diff @ np.linalg.solve(D @ V @ D.T, diff))
+            from scipy.stats import chi2 as chi2_dist
+            row = dict(model=model, term=t, ordinal=ordinal.loc[(model, t), "coef"],
+                       ordinal_se=ordinal.loc[(model, t), "se"])
+            for (cut, label), bj, vj in zip(PO_CUTS, b, np.diag(V)):
+                row[label] = bj
+                row[label + " se"] = np.sqrt(vj)
+            row.update(chi2=chi2, p=float(chi2_dist.sf(chi2, 2)))
+            rows.append(row)
+    out = pd.DataFrame(rows)
+    out.to_csv(os.path.join(out_dir, "po_check.csv"), index=False)
+    show = out[["model", "term"]].copy()
+    show["ordinal"] = [f"{e:+.3f} ({s:.3f})" for e, s in zip(out["ordinal"], out["ordinal_se"])]
+    for _, label in PO_CUTS:
+        show[label] = [f"{e:+.3f} ({s:.3f})" for e, s in zip(out[label], out[label + " se"])]
+    show["equal? p"] = out["p"].map(lambda p: f"{p:.3f}{' *' if p < 0.05 else ''}")
+    print("\nproportional-odds check (yes/no logits at each cut; * = slopes differ, p < 0.05):")
+    print(show.to_string(index=False))
+    return out
+
+
+def report_classes(coefs, adapt):
+    """Report sentences for --outcome classes, as odds ratios of a higher loss class."""
+    k = coefs.set_index(["model", "term"])
+    c, se = k["coef"], k["se"]
+    odds = lambda b, step=STEP: np.exp(step * b)
+    b1 = {m: c[(m, STORM)] for m in MODELS}
+    s1 = {m: se[(m, STORM)] for m in MODELS}
+    print(f"\nreport sentences (ordered logit; odds of a higher loss class for a storm {STEP} larger, "
+          "i.e. 10% more of the county's 10-year 5-day rain; check them against the tables):")
+    diff = b1["M3"] - b1["M0"]
+    if abs(diff) < max(s1["M0"], s1["M3"]):
+        verdict = "hardly changes the storm effect"
+    elif diff > 0:
+        verdict = "raises the storm effect: ignoring them understates storm damage"
+    else:
+        verdict = "lowers the storm effect: ignoring them overstates storm damage"
+    print(f"  Storm, M0 to M3: adjusting for climate and adaptation {verdict}. A storm {STEP} larger "
+          f"multiplies the odds of a higher loss class by {odds(b1['M0']):.2f} unadjusted and "
+          f"{odds(b1['M3']):.2f} adjusted (b1 {b1['M0']:.2f} -> {b1['M3']:.2f}, SE about {s1['M3']:.2f}).")
+    c1, c3 = c[("M1", CLIMATE)], c[("M3", CLIMATE)]
+    e1, e3 = se[("M1", CLIMATE)], se[("M3", CLIMATE)]
+    line = (f"c = {c1:+.3f} (SE {e1:.3f}) in M1 and {c3:+.3f} (SE {e3:.3f}) in M3, per 10 mm; "
+            f"odds ratio {np.exp(c3):.2f} in M3")
+    if not clear(c1, e1) and not clear(c3, e3):
+        print(f"  Climate, M1 to M3: given the storm, climate has no clear effect on the loss class ({line}).")
+    else:
+        direction = "higher" if (c3 if clear(c3, e3) else c1) > 0 else "lower"
+        shrinks = clear(c1, e1) and np.sign(c3) == np.sign(c1) and abs(c3) < abs(c1)
+        tail = (f"measured adaptation explains {(c1 - c3) / c1:.0%} of that." if shrinks
+                else "adding adaptation does not shrink it.")
+        print(f"  Climate, M1 to M3: wetter-climate counties have {direction} loss classes for the same "
+              f"storm ({line}); {tail}")
+    b14 = b1["M4"]
+    for var in adapt:
+        d, sd = c[("M4", f"{STORM}:{var}")], se[("M4", f"{STORM}:{var}")]
+        tag = "clear" if clear(d, sd) else "not clear"
+        print(f"  M4, {var}: a storm {STEP} larger multiplies the odds of a higher class by "
+              f"{odds(b14):.3f} at average {var} and {odds(b14 + d):.3f} one std above "
+              f"(d = {d:+.3f}, SE {sd:.3f}, {tag}).")
+
+
+def compare(coefs, other_path, out_dir):
+    """Each M3 and M4 term of this (classes) run next to a dollars run: sign and clarity."""
+    other = pd.read_csv(other_path)
+    keys = ["model", "term"]
+    a = coefs[coefs["model"].isin(["M3", "M4"])][keys + ["coef", "se"]]
+    b = other[other["model"].isin(["M3", "M4"])][keys + ["coef", "se"]]
+    m = b.merge(a, on=keys, suffixes=("_dollars", "_classes"))
+    m = m[~m["term"].str.startswith(("m_", "st_")) & (m["term"] != "const")]
+    for v in ["dollars", "classes"]:
+        m[f"z_{v}"] = m[f"coef_{v}"] / m[f"se_{v}"]
+        m[f"clear_{v}"] = m[f"z_{v}"].abs() > Z
+    m["same_sign"] = np.sign(m["coef_dollars"]) == np.sign(m["coef_classes"])
+    m["odds_ratio"] = np.exp(m["coef_classes"])
+    m.to_csv(os.path.join(out_dir, "comparison.csv"), index=False)
+    show = m.copy()
+    for v in ["dollars", "classes"]:
+        show[v] = [f"{e:+.3f} ({s:.3f}){' *' if cl else ''}" for e, s, cl in
+                   zip(show[f"coef_{v}"], show[f"se_{v}"], show[f"clear_{v}"])]
+    print(f"\ncomparison with {other_path} (dollars: log10 $, damage months; classes: log-odds, "
+          "storm months; * = 95% interval excludes 0):")
+    print(show[keys + ["dollars", "classes", "same_sign"]].to_string(index=False))
+
+
 # ---------------------------------------------------------------
 # plots
 # ---------------------------------------------------------------
-def plots(coefs, fits, data, adapt, out_dir):
+def plots(coefs, fits, data, adapt, out_dir, outcome="dollars"):
     try:
         import matplotlib
         matplotlib.use("Agg")
@@ -370,7 +623,8 @@ def plots(coefs, fits, data, adapt, out_dir):
                     fmt="o", capsize=4, color=color, label=label)
     ax.axhline(0, color="grey", lw=0.8)
     ax.set_xticks(range(len(models)), models)
-    ax.set_ylabel("coefficient (log10 loss per unit)")
+    ax.set_ylabel("coefficient (log-odds of a higher loss class per unit)" if outcome == "classes"
+                  else "coefficient (log10 loss per unit)")
     ax.set_title("Storm and exposure effect by model, 95% intervals")
     ax.legend(frameon=False, fontsize=8)
     fig.tight_layout()
@@ -383,7 +637,8 @@ def plots(coefs, fits, data, adapt, out_dir):
     ax.bar(["M1\nclimate only", "M3\n+ adaptation"], sub["coef"], color=["#7a9cc6", "#1f5fa8"],
            yerr=[sub["coef"] - sub["ci_lo"], sub["ci_hi"] - sub["coef"]], capsize=5)
     ax.axhline(0, color="grey", lw=0.8)
-    ax.set_ylabel("c (log10 loss per 10 mm of rx5 10-year level)")
+    ax.set_ylabel(("c (log-odds per 10 mm" if outcome == "classes" else "c (log10 loss per 10 mm")
+                  + " of rx5 10-year level)")
     ax.set_title("Climate coefficient\nbefore and after adaptation", fontsize=10)
     fig.tight_layout()
     fig.savefig(os.path.join(out_dir, "plot_climate_bars.png"), dpi=200)
@@ -405,12 +660,18 @@ def plots(coefs, fits, data, adapt, out_dir):
                 rows[f"{STORM}:{other}"] = 0.0
             rows[a] = level
             rows[f"{STORM}:{a}"] = storm * level
-            pred = rows[X.columns].to_numpy() @ b.to_numpy()
-            ax.plot(storm, 10 ** pred, color=color, label=f"{level:+d} std" if level else "average")
-        ax.set_yscale("log")
+            pred = rows[X.columns].to_numpy() @ b[X.columns].to_numpy()
+            if outcome == "classes":     # chance of a $100k+ loss: P(class >= MAJOR)
+                y = 100 * expit(pred - b[f"cut_{MAJOR - 1}|{MAJOR}"])
+            else:
+                y = 10 ** pred
+            ax.plot(storm, y, color=color, label=f"{level:+d} std" if level else "average")
+        if outcome != "classes":
+            ax.set_yscale("log")
         ax.set_title(a, fontsize=9)
         ax.set_xlabel("storm size (rx5_rl_ratio)")
-    axes[0][0].set_ylabel("predicted loss, 2024 $ (log scale)")
+    axes[0][0].set_ylabel("chance of a $100k+ loss (%)" if outcome == "classes"
+                          else "predicted loss, 2024 $ (log scale)")
     axes[0][0].legend(frameon=False, fontsize=8, title="adaptation", title_fontsize=8)
     fig.suptitle("M4 damage curves: same storm, different adaptation", fontsize=10)
     fig.tight_layout()
@@ -427,6 +688,14 @@ def main():
                     help="add the optional inputs: log median home value, mobile home share, imperviousness")
     ap.add_argument("--drop", nargs="*", default=[], help="inputs to leave out (after the correlation check)")
     ap.add_argument("--corr-max", type=float, default=0.8)
+    ap.add_argument("--outcome", choices=["dollars", "classes"], default="dollars",
+                    help="dollars: OLS on log10 loss, damage months; classes: ordered logit on loss "
+                         "class 0-4, storm months")
+    ap.add_argument("--storm-min", type=float, default=0.5,
+                    help="--outcome classes: keep months with rx5_rl_ratio at or above this")
+    ap.add_argument("--compare", help="--outcome classes: coefs.csv of a dollars run to compare with")
+    ap.add_argument("--po-check", action="store_true",
+                    help="--outcome classes: test the proportional-odds assumption (po_check.csv)")
     ap.add_argument("--out-dir", default="results/adjustment")
     args = ap.parse_args()
 
@@ -435,8 +704,8 @@ def main():
     sys.stdout = Tee(sys.__stdout__, log)
     print(f"adjustment_models.py {' '.join(sys.argv[1:])}")
 
-    data, adapt, rest = load(args.panel, args.state, args.extras, args.drop)
-    sample = data.groupby("state").agg(rows=(TARGET, "size"), counties=("GEOID", "nunique"),
+    data, adapt, rest = load(args.panel, args.state, args.extras, args.drop, args.outcome, args.storm_min)
+    sample = data.groupby("state").agg(rows=("GEOID", "size"), counties=("GEOID", "nunique"),
                                        first_year=("year", "min"), last_year=("year", "max"))
     print(sample.to_string())
     sample.to_csv(os.path.join(args.out_dir, "sample.csv"))
@@ -444,11 +713,20 @@ def main():
     corr = check_correlations(data, [STORM, EXPOSURE, CLIMATE] + adapt + rest, args.corr_max)
     corr.to_csv(os.path.join(args.out_dir, "correlations.csv"), index=False)
 
-    coefs, fits = fit_all(data, adapt, rest)
+    coefs, fits = fit_all(data, adapt, rest, args.outcome)
     coefs.to_csv(os.path.join(args.out_dir, "coefs.csv"), index=False)
-    summary_table(coefs, adapt).to_csv(os.path.join(args.out_dir, "summary.csv"))
-    report(coefs, adapt)
-    plots(coefs, fits, data, adapt, args.out_dir)
+    if args.outcome == "classes":
+        summary_table(coefs, adapt, "log-odds of a higher loss class").to_csv(
+            os.path.join(args.out_dir, "summary.csv"))
+        report_classes(coefs, adapt)
+        if args.compare:
+            compare(coefs, args.compare, args.out_dir)
+        if args.po_check:
+            po_check(data, adapt, rest, coefs, args.out_dir)
+    else:
+        summary_table(coefs, adapt).to_csv(os.path.join(args.out_dir, "summary.csv"))
+        report(coefs, adapt)
+    plots(coefs, fits, data, adapt, args.out_dir, args.outcome)
     print(f"\nresults in {args.out_dir}")
 
 

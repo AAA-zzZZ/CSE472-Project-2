@@ -1,0 +1,125 @@
+adjustment_models.py --outcome classes --drop log_snowmelt_mm --compare results/adjustment_midwest/coefs.csv --po-check --out-dir results/adjustment_classes_midwest
+storm months (rx5_rl_ratio >= 0.5) 2011-2023: 32,283; dropped 0 with a missing or infinite input
+adaptation (A): ['nfip_policies_per_hu', 'log_median_income', 'built_pre1980_share', 'wetland_share', 'crs_credit']
+rest (every model): ['sm_root_pct', 'log_swe_mm', 'frost_days', 'log_p_month', 'hand_lt5_share', 'log_land_km2']
+loss classes: 0 none 29,088 (90.1%), 1 minor 804 (2.5%), 2 moderate 1,049 (3.2%), 3 major 878 (2.7%), 4 severe 464 (1.4%)
+       rows  counties  first_year  last_year
+state                                       
+IA     2631        99        2011       2023
+IL     3177       102        2011       2023
+IN     2423        92        2011       2023
+KS     2570       105        2011       2023
+MI     3430        83        2011       2023
+MN     2306        87        2011       2023
+MO     3319       115        2011       2023
+ND     1457        53        2011       2023
+NE     2972        93        2011       2023
+OH     3510        88        2011       2023
+SD     2172        66        2011       2023
+WI     2316        72        2011       2023
+correlation check: no pair above |r| = 0.8
+M0: 32,283 rows, 1055 counties, 30 terms, McFadden pseudo-R2 0.124
+M1: 32,283 rows, 1055 counties, 31 terms, McFadden pseudo-R2 0.135
+M2: 32,283 rows, 1055 counties, 35 terms, McFadden pseudo-R2 0.132
+M3: 32,283 rows, 1055 counties, 36 terms, McFadden pseudo-R2 0.141
+M4: 32,283 rows, 1055 counties, 41 terms, McFadden pseudo-R2 0.143
+
+coefficients (clustered SE); adaptation per 1 std, log-odds of a higher loss class
+model                                      M0             M1              M2              M3              M4
+b1 storm                        1.970 (0.126)  2.698 (0.116)   2.061 (0.124)   2.740 (0.117)   2.737 (0.123)
+b2 exposure                     0.297 (0.039)  0.263 (0.041)   0.360 (0.046)   0.305 (0.049)   0.298 (0.049)
+c climate (per 10 mm)                          0.220 (0.019)                   0.206 (0.019)   0.205 (0.019)
+d storm x nfip_policies_per_hu                                                                -0.230 (0.087)
+d storm x log_median_income                                                                    0.032 (0.096)
+d storm x built_pre1980_share                                                                 -0.310 (0.113)
+d storm x wetland_share                                                                        0.251 (0.139)
+d storm x crs_credit                                                                           0.078 (0.100)
+a nfip_policies_per_hu                                         0.110 (0.033)   0.101 (0.031)   0.284 (0.076)
+a log_median_income                                           -0.299 (0.045)  -0.251 (0.045)  -0.267 (0.094)
+a built_pre1980_share                                         -0.074 (0.044)  -0.034 (0.046)   0.217 (0.103)
+a wetland_share                                               -0.310 (0.064)  -0.269 (0.060)  -0.485 (0.134)
+a crs_credit                                                   0.062 (0.039)   0.081 (0.039)   0.022 (0.089)
+
+report sentences (ordered logit; odds of a higher loss class for a storm 0.1 larger, i.e. 10% more of the county's 10-year 5-day rain; check them against the tables):
+  Storm, M0 to M3: adjusting for climate and adaptation raises the storm effect: ignoring them understates storm damage. A storm 0.1 larger multiplies the odds of a higher loss class by 1.22 unadjusted and 1.32 adjusted (b1 1.97 -> 2.74, SE about 0.12).
+  Climate, M1 to M3: wetter-climate counties have higher loss classes for the same storm (c = +0.220 (SE 0.019) in M1 and +0.206 (SE 0.019) in M3, per 10 mm; odds ratio 1.23 in M3); measured adaptation explains 6% of that.
+  M4, nfip_policies_per_hu: a storm 0.1 larger multiplies the odds of a higher class by 1.315 at average nfip_policies_per_hu and 1.285 one std above (d = -0.230, SE 0.087, clear).
+  M4, log_median_income: a storm 0.1 larger multiplies the odds of a higher class by 1.315 at average log_median_income and 1.319 one std above (d = +0.032, SE 0.096, not clear).
+  M4, built_pre1980_share: a storm 0.1 larger multiplies the odds of a higher class by 1.315 at average built_pre1980_share and 1.275 one std above (d = -0.310, SE 0.113, clear).
+  M4, wetland_share: a storm 0.1 larger multiplies the odds of a higher class by 1.315 at average wetland_share and 1.348 one std above (d = +0.251, SE 0.139, not clear).
+  M4, crs_credit: a storm 0.1 larger multiplies the odds of a higher class by 1.315 at average crs_credit and 1.325 one std above (d = +0.078, SE 0.100, not clear).
+
+comparison with results/adjustment_midwest/coefs.csv (dollars: log10 $, damage months; classes: log-odds, storm months; * = 95% interval excludes 0):
+model                              term          dollars          classes  same_sign
+   M3                      rx5_rl_ratio +1.155 (0.073) * +2.740 (0.117) *       True
+   M3                 log_built_surface +0.222 (0.037) * +0.305 (0.049) *       True
+   M3                      climate_10mm   -0.012 (0.012) +0.206 (0.019) *      False
+   M3              nfip_policies_per_hu   -0.004 (0.023) +0.101 (0.031) *      False
+   M3                 log_median_income   +0.047 (0.030) -0.251 (0.045) *      False
+   M3               built_pre1980_share +0.124 (0.031) *   -0.034 (0.046)      False
+   M3                     wetland_share   +0.041 (0.030) -0.269 (0.060) *      False
+   M3                        crs_credit   -0.048 (0.026) +0.081 (0.039) *      False
+   M3                       sm_root_pct +0.334 (0.052) * +1.135 (0.082) *       True
+   M3                        log_swe_mm +0.120 (0.022) * +0.271 (0.036) *       True
+   M3                        frost_days +0.015 (0.005) * +0.033 (0.007) *       True
+   M3                       log_p_month   +0.037 (0.047) +1.383 (0.089) *       True
+   M3                    hand_lt5_share   -0.147 (0.122)   -0.230 (0.167)       True
+   M3                      log_land_km2   -0.061 (0.064) +0.343 (0.097) *      False
+   M4                      rx5_rl_ratio +1.110 (0.074) * +2.737 (0.123) *       True
+   M4                 log_built_surface +0.222 (0.037) * +0.298 (0.049) *       True
+   M4                      climate_10mm   -0.013 (0.012) +0.205 (0.019) *      False
+   M4              nfip_policies_per_hu   +0.055 (0.039) +0.284 (0.076) *       True
+   M4                 log_median_income +0.095 (0.044) * -0.267 (0.094) *      False
+   M4               built_pre1980_share +0.231 (0.044) * +0.217 (0.103) *       True
+   M4                     wetland_share   +0.036 (0.046) -0.485 (0.134) *      False
+   M4                        crs_credit -0.105 (0.046) *   +0.022 (0.089)      False
+   M4                       sm_root_pct +0.325 (0.052) * +1.147 (0.082) *       True
+   M4                        log_swe_mm +0.117 (0.022) * +0.279 (0.036) *       True
+   M4                        frost_days +0.016 (0.005) * +0.035 (0.007) *       True
+   M4                       log_p_month   +0.065 (0.048) +1.405 (0.090) *       True
+   M4                    hand_lt5_share   -0.150 (0.122)   -0.237 (0.166)       True
+   M4                      log_land_km2   -0.061 (0.064) +0.348 (0.096) *      False
+   M4 rx5_rl_ratio:nfip_policies_per_hu -0.095 (0.045) * -0.230 (0.087) *       True
+   M4    rx5_rl_ratio:log_median_income   -0.066 (0.046)   +0.032 (0.096)      False
+   M4  rx5_rl_ratio:built_pre1980_share -0.154 (0.042) * -0.310 (0.113) *       True
+   M4        rx5_rl_ratio:wetland_share   +0.004 (0.054)   +0.251 (0.139)       True
+   M4           rx5_rl_ratio:crs_credit   +0.089 (0.061)   +0.078 (0.100)       True
+
+proportional-odds check (yes/no logits at each cut; * = slopes differ, p < 0.05):
+model                              term        ordinal       any loss         $100k+           $1M+ equal? p
+   M3                      rx5_rl_ratio +2.740 (0.117) +2.432 (0.115) +3.398 (0.148) +3.894 (0.211)  0.000 *
+   M3                 log_built_surface +0.305 (0.049) +0.269 (0.050) +0.469 (0.061) +0.687 (0.079)  0.000 *
+   M3                      climate_10mm +0.206 (0.019) +0.210 (0.020) +0.189 (0.024) +0.177 (0.034)    0.522
+   M3              nfip_policies_per_hu +0.101 (0.031) +0.111 (0.032) +0.007 (0.036) +0.113 (0.059)  0.006 *
+   M3                 log_median_income -0.251 (0.045) -0.255 (0.047) -0.165 (0.051) -0.100 (0.079)    0.096
+   M3               built_pre1980_share -0.034 (0.046) -0.038 (0.048) +0.077 (0.052) +0.090 (0.079)  0.046 *
+   M3                     wetland_share -0.269 (0.060) -0.275 (0.061) -0.206 (0.066) -0.266 (0.100)    0.380
+   M3                        crs_credit +0.081 (0.039) +0.096 (0.039) +0.007 (0.051) +0.000 (0.057)    0.071
+   M3                       sm_root_pct +1.135 (0.082) +1.091 (0.082) +1.623 (0.127) +1.568 (0.216)  0.000 *
+   M3                        log_swe_mm +0.271 (0.036) +0.258 (0.035) +0.423 (0.048) +0.342 (0.078)  0.000 *
+   M3                        frost_days +0.033 (0.007) +0.032 (0.007) +0.045 (0.009) +0.084 (0.014)  0.001 *
+   M3                       log_p_month +1.383 (0.089) +1.414 (0.090) +1.345 (0.130) +1.618 (0.229)    0.358
+   M3                    hand_lt5_share -0.230 (0.167) -0.264 (0.177) +0.110 (0.202) -0.277 (0.321)  0.050 *
+   M3                      log_land_km2 +0.343 (0.097) +0.365 (0.100) +0.274 (0.103) +0.440 (0.143)    0.316
+   M4                      rx5_rl_ratio +2.737 (0.123) +2.439 (0.119) +3.341 (0.155) +3.714 (0.233)  0.000 *
+   M4                 log_built_surface +0.298 (0.049) +0.265 (0.050) +0.459 (0.060) +0.671 (0.078)  0.000 *
+   M4                      climate_10mm +0.205 (0.019) +0.208 (0.020) +0.186 (0.024) +0.180 (0.034)    0.496
+   M4              nfip_policies_per_hu +0.284 (0.076) +0.274 (0.074) +0.016 (0.109) +0.386 (0.151)  0.001 *
+   M4                 log_median_income -0.267 (0.094) -0.322 (0.093) -0.004 (0.114) +0.034 (0.181)  0.006 *
+   M4               built_pre1980_share +0.217 (0.103) +0.097 (0.098) +0.492 (0.125) +0.832 (0.216)  0.000 *
+   M4                     wetland_share -0.485 (0.134) -0.492 (0.123) -0.406 (0.145) -0.474 (0.209)    0.680
+   M4                        crs_credit +0.022 (0.089) +0.068 (0.084) -0.153 (0.123) -0.310 (0.160)  0.023 *
+   M4                       sm_root_pct +1.147 (0.082) +1.104 (0.082) +1.614 (0.127) +1.546 (0.216)  0.000 *
+   M4                        log_swe_mm +0.279 (0.036) +0.264 (0.035) +0.437 (0.048) +0.361 (0.078)  0.000 *
+   M4                        frost_days +0.035 (0.007) +0.033 (0.007) +0.046 (0.009) +0.088 (0.014)  0.000 *
+   M4                       log_p_month +1.405 (0.090) +1.433 (0.091) +1.374 (0.132) +1.677 (0.232)    0.318
+   M4                    hand_lt5_share -0.237 (0.166) -0.267 (0.177) +0.090 (0.201) -0.314 (0.320)  0.050 *
+   M4                      log_land_km2 +0.348 (0.096) +0.368 (0.100) +0.270 (0.102) +0.431 (0.144)    0.322
+   M4 rx5_rl_ratio:nfip_policies_per_hu -0.230 (0.087) -0.207 (0.082) -0.008 (0.121) -0.292 (0.158)  0.040 *
+   M4    rx5_rl_ratio:log_median_income +0.032 (0.096) +0.092 (0.089) -0.167 (0.107) -0.101 (0.157)  0.010 *
+   M4  rx5_rl_ratio:built_pre1980_share -0.310 (0.113) -0.168 (0.101) -0.462 (0.127) -0.733 (0.195)  0.001 *
+   M4        rx5_rl_ratio:wetland_share +0.251 (0.139) +0.253 (0.118) +0.211 (0.139) +0.187 (0.168)    0.858
+   M4           rx5_rl_ratio:crs_credit +0.078 (0.100) +0.039 (0.091) +0.191 (0.116) +0.333 (0.156)    0.085
+plots written to results/adjustment_classes_midwest
+
+results in results/adjustment_classes_midwest

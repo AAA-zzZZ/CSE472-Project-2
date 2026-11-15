@@ -3,13 +3,80 @@
 Read this first when picking up the project in a new session. It summarizes the
 work through 2026-11-01 on branch `enci-dev` (pull request #1 into `main`).
 
-**Newest work:** [Loss classes instead of dollars (2026-11-14)](#loss-classes-instead-of-dollars-2026-11-14).
-**Before that:** [Midwest explorer app (2026-11-13)](#midwest-explorer-app-2026-11-13), then
+**Newest work:** [Adjustment as an ordered logit on loss classes (2026-11-15)](#adjustment-as-an-ordered-logit-on-loss-classes-2026-11-15).
+**Before that:** [Loss classes instead of dollars (2026-11-14)](#loss-classes-instead-of-dollars-2026-11-14), then [Midwest explorer app (2026-11-13)](#midwest-explorer-app-2026-11-13), then
 [Climate and adaptation adjustment (2026-11-10 to 2026-11-11)](#climate-and-adaptation-adjustment-2026-11-10-to-2026-11-11),
 then [Latest session (2026-11-08 to 2026-11-09)](#latest-session-2026-11-08-to-2026-11-09)
 below, then `yana_workspace/HANDOFF2.md` to `HANDOFF4.md` (the teammate's sessions: 5-county
 design, Route 2 with PRISM, the PRISM refit). The sections after the latest session describe the
 original NOAA design and are kept as history.
+
+## Adjustment as an ordered logit on loss classes (2026-11-15)
+
+The instructor said zero-loss storm months should not be dropped from the causal model.
+`adjustment_models.py --outcome classes` refits M0-M4 as an **ordered logit on loss class 0-4**
+(none, under $10k, $10k-$100k, $100k-$1M, $1M+; the edges of `loss_class_model.py`) over every
+**storm month** (rx5_rl_ratio >= 0.5) in 2011-2023, damaged or not. Same variables (snowmelt
+dropped), same storm x adaptation terms, county-clustered SEs. Coefficients are log-odds of a
+higher class; exp(coef) is an odds ratio. The estimator matches statsmodels' OrderedModel exactly
+(coefficients, cuts, clustered SEs) on simulated data. `--compare` writes `comparison.csv`
+against the dollars run.
+
+```powershell
+python adjustment_models.py --outcome classes --drop log_snowmelt_mm --compare results/adjustment_midwest/coefs.csv --out-dir results/adjustment_classes_midwest
+python adjustment_models.py --outcome classes --state MO --drop log_snowmelt_mm --compare results/adjustment_missouri/coefs.csv --out-dir results/adjustment_classes_missouri
+```
+
+Sample: 32,283 storm months in 12 states (90% no loss), 3,319 in Missouri. The panel was rebuilt
+from the committed raw data with the HANDOFF rebuild commands; it reproduces the committed
+dollars results exactly.
+
+| 12 states | Dollars (log10 $, damage months) | Classes (log-odds, storm months) |
+|---|---|---|
+| b1 storm, M0 -> M3 | 1.20 -> 1.16 (SE 0.07) | **1.97 -> 2.74** (SE 0.12) |
+| c climate per 10 mm, M3 | -0.012 (0.012) | **+0.206** (0.019) |
+| d storm x insurance | **-0.095** (0.045) | **-0.230** (0.087) |
+| d storm x pre-1980 homes | **-0.154** (0.042) | **-0.310** (0.113) |
+| d storm x income / wetlands / CRS | none clear | none clear |
+
+- With zero-loss storms in, **adjusting raises the storm effect** (odds of a higher class per 0.1
+  more storm: 1.22 unadjusted, 1.32 adjusted), almost all of it when climate is added (M0 -> M1).
+  This is the pattern the one-pager expected; the damage-months version could not show it.
+- **Climate is clearly positive**: for the same storm relative to local climate, wetter-climate
+  counties reach higher loss classes (odds ratio 1.23 per 10 mm). Adaptation explains 6% of it.
+- **Insurance and pre-1980 d keep their sign and stay clear**, now about 2.6 SE from zero.
+- Main effects (a) of income and wetlands turn negative (fewer damaged storm months), unlike the
+  dollars version: possibly adaptation preventing damage, but a is confounded; read d.
+- **Threshold check** (0.3 / 0.5 / 0.7; 78,682 / 32,283 / 11,664 rows): b1 rises M0 -> M3 at all
+  three; climate +0.18 to +0.22; d insurance -0.29 / -0.23 / -0.37 and d pre-1980 about -0.29 to
+  -0.31, all clear; income, wetlands, CRS d never clear.
+- **Missouri:** b1 2.30 -> 2.74, climate +0.24 (clear); no d is clear (insurance -0.39, SE 0.23).
+  November is left out (162 storm months, none with any loss): a month with no damage has no
+  finite coefficient. The script now drops such months automatically and says so; all 12 states
+  are unaffected.
+- **Why wet-climate counties look worse** (checked with the storm in mm instead of the ratio, M3):
+  the climate effect falls from +0.206 to +0.038 per 10 mm in 12 states (odds ratio 1.23 -> 1.04),
+  and from +0.235 to +0.085 (not clear) in Missouri. Most of it is the ratio giving wet counties
+  more rain for the same "relative" storm (wettest-quarter counties average 109 mm in these storm
+  months, the driest quarter 60 mm).
+- **Proportional-odds check** (`--po-check`, `po_check.csv`): M3 and M4 refitted as yes/no logits
+  for any loss, $100k+ and $1M+, with a county-clustered test that each term's three slopes are
+  equal (checked on simulated data: no false flags when the assumption holds; catches a varying
+  slope). 12 states:
+  - **Storm and exposure grow with severity** (storm 2.43 / 3.40 / 3.89; built-up area 0.27 /
+    0.47 / 0.69): not proportional, so the ordinal coefficient is an average. Adjusting raises the
+    storm effect at every cut (M0 -> M3: 1.64 -> 2.43, 2.78 -> 3.40, 3.27 -> 3.89).
+  - **Climate holds** (0.21 / 0.19 / 0.18, p = 0.52).
+  - **Storm x insurance** -0.21 (SE 0.08, clear) / -0.01 (0.12) / -0.29 (0.16): clearest for
+    whether any loss occurs; p = 0.04 for equal slopes.
+  - **Storm x pre-1980** -0.17 / -0.46 / -0.73: grows with severity, clear at $100k+ and $1M+.
+  - Income, wetlands, CRS: no single cut clearly different from zero except CRS at $1M+ (+0.33,
+    SE 0.16, about 2 SE, unexpected direction; one of many tests).
+  - Missouri: storm and exposure also grow with severity; storm x insurance -0.26 / -0.42 / -0.62,
+    equal-slopes p = 0.53, none clear alone. The $100k+ and $1M+ fits leave out 923 rows in
+    months with no such loss (Jan-Mar, Sep, Oct).
+  - Reading: the directions of the main results hold at every cut; magnitudes differ. Report the
+    ordinal model as the summary and the three-cut table for storm, exposure and the d terms.
 
 ## Loss classes instead of dollars (2026-11-14)
 
