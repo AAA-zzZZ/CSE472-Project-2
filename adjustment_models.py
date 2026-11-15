@@ -188,6 +188,15 @@ def load(path, state, extras, drop, outcome="dollars", storm_min=0.5):
     print(f"adaptation (A): {adapt}")
     print(f"rest (every model): {rest}")
     if outcome == "classes":
+        # a calendar month with no damaged storm month predicts "no loss" perfectly: its
+        # indicator runs off to minus infinity and has no standard error, so leave those rows
+        # out (as logistic regression software does); with all 12 states every month has damage
+        dry = data.groupby("month")[CLASS].max()
+        dry = sorted(dry[dry == 0].index)
+        if dry:
+            print(f"left out {int(data['month'].isin(dry).sum()):,} storm months in calendar month(s) "
+                  f"{dry}: none of them had any loss")
+            data = data[~data["month"].isin(dry)].reset_index(drop=True)
         counts = data[CLASS].value_counts().reindex(range(5), fill_value=0)
         print("loss classes: " + ", ".join(f"{k} {CLASS_NAMES[k]} {n:,} ({n / len(data):.1%})"
                                             for k, n in counts.items()))

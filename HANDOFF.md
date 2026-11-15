@@ -50,7 +50,15 @@ dollars results exactly.
 - **Threshold check** (0.3 / 0.5 / 0.7; 78,682 / 32,283 / 11,664 rows): b1 rises M0 -> M3 at all
   three; climate +0.18 to +0.22; d insurance -0.29 / -0.23 / -0.37 and d pre-1980 about -0.29 to
   -0.31, all clear; income, wetlands, CRS d never clear.
-- **Missouri:** b1 2.30 -> 2.74, climate +0.24 (clear); no d is clear (insurance -0.40, SE 0.23).
+- **Missouri:** b1 2.30 -> 2.74, climate +0.24 (clear); no d is clear (insurance -0.39, SE 0.23).
+  November is left out (162 storm months, none with any loss): a month with no damage has no
+  finite coefficient. The script now drops such months automatically and says so; all 12 states
+  are unaffected.
+- **Why wet-climate counties look worse** (checked with the storm in mm instead of the ratio, M3):
+  the climate effect falls from +0.206 to +0.038 per 10 mm in 12 states (odds ratio 1.23 -> 1.04),
+  and from +0.235 to +0.085 (not clear) in Missouri. Most of it is the ratio giving wet counties
+  more rain for the same "relative" storm (wettest-quarter counties average 109 mm in these storm
+  months, the driest quarter 60 mm).
 - Proportional odds (one coefficient for every cut) is assumed, not yet tested.
 
 ## Loss classes instead of dollars (2026-11-14)
