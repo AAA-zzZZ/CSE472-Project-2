@@ -46,6 +46,8 @@ storm month, damaged or not.
     an odds ratio. Fitted by maximum likelihood; standard errors clustered by county (CR1).
   * --compare <coefs.csv of a dollars run> writes comparison.csv: each term of M3 and M4 in
     both versions, with sign agreement and whether each is clearly different from zero.
+  * --po-check writes po_check.csv: M3 and M4 refitted as yes/no logits at three cuts (any
+    loss, $100k+, $1M+), with a clustered Wald test that each term's three slopes are equal.
 
 Input : model_panel.csv from merge_panel.py (PRISM climate, GHSL, census and NFIP tables)
 Output, in --out-dir:
@@ -283,7 +285,7 @@ def _ordinal_scores(theta, A, y, n_cut):
     return S, np.log(p).sum()
 
 
-def ordered_logit_cluster(X, y, groups, n_class=5):
+def ordered_logit_cluster(X, y, groups, n_class=5, parts=False):
     """Proportional-odds ordered logit, P(y > j) = logistic(X b - cut_j), by maximum likelihood,
     with county-clustered (CR1) standard errors. Fitted on standardized columns, then mapped
     back to the original units (b per unit of each column; cuts on the raw scale)."""
@@ -317,7 +319,12 @@ def ordered_logit_cluster(X, y, groups, n_class=5):
     H = (H + H.T) / 2
     bread = np.linalg.inv(H)
     S, ll = _ordinal_scores(theta, A, y, n_cut)
-    G = pd.DataFrame(S).groupby(np.asarray(groups)).sum().to_numpy()
+    G = pd.DataFrame(S).groupby(np.asarray(groups)).sum()
+    if parts:                            # for the proportional-odds check: stacked covariances
+        return dict(theta=theta, bread=bread, G=G, names=list(X.columns), k=k,
+                    T=np.vstack([np.hstack([np.diag(1 / sd), np.zeros((k, n_cut))]),
+                                 np.hstack([(m / sd)[None, :].repeat(n_cut, 0), np.eye(n_cut)])]))
+    G = G.to_numpy()
     g = G.shape[0]
     Vz = bread @ (G.T @ G) @ bread * (g / (g - 1))
     # back to raw units: b = bz / sd; cut = cut_z + sum(m * b)
@@ -461,6 +468,72 @@ def report(coefs, adapt):
     quiet = [v for v in adapt if v != a and not clear(c[("M4", f"{STORM}:{v}")], se[("M4", f"{STORM}:{v}")])]
     if quiet:
         print(f"  M4, no clear effect on storm damage: {', '.join(quiet)}.")
+
+
+PO_CUTS = [(1, "any loss"), (3, "$100k+"), (4, "$1M+")]
+
+
+def po_check(data, adapt, rest, coefs, out_dir):
+    """Proportional-odds check: M3 and M4 refitted as three yes/no logits (class >= 1, >= 3,
+    >= 4). For each term, the three slopes and a Wald test that they are equal (2 df), with
+    the cross-model covariance from stacked, county-clustered scores (a clustered Brant test).
+    A calendar month with no event at a cut is left out of that cut's fit (its indicator
+    would have no finite coefficient); its rows then add nothing to the scores."""
+    states = sorted(data["state"].unique())
+    groups = np.asarray(data["GEOID"])
+    clusters = pd.Index(sorted(set(groups)))
+    g = len(clusters)
+    ordinal = coefs.set_index(["model", "term"])
+    rows = []
+    for model in ["M3", "M4"]:
+        X = design(data, MODELS[model], adapt, rest, states, const=False)
+        fits = []
+        for cut, label in PO_CUTS:
+            y = (data[CLASS].to_numpy() >= cut).astype(int)
+            months = data.groupby("month")[CLASS].apply(lambda c: (c >= cut).sum())
+            keep = ~data["month"].isin(months[months == 0].index).to_numpy()
+            Xk = X[keep]
+            Xk = Xk.loc[:, Xk.std() > 0]
+            if (~keep).any():
+                print(f"  {model}, {label}: left out {int((~keep).sum()):,} rows in calendar month(s) "
+                      f"{sorted(months[months == 0].index)} with no event")
+            f = ordered_logit_cluster(Xk, y[keep], groups[keep], n_class=2, parts=True)
+            f["G"] = f["G"].reindex(clusters, fill_value=0.0).to_numpy()
+            fits.append(f)
+        terms = [t for t in X.columns if not t.startswith(("m_", "st_"))
+                 and all(t in f["names"] for f in fits)]
+
+        def raw_cov(fa, fb):
+            v = fa["bread"] @ (fa["G"].T @ fb["G"]) @ fb["bread"].T * (g / (g - 1))
+            return fa["T"] @ v @ fb["T"].T
+
+        est = [f["T"] @ f["theta"] for f in fits]
+        cov = [[raw_cov(fa, fb) for fb in fits] for fa in fits]
+        for t in terms:
+            idx = [f["names"].index(t) for f in fits]
+            b = np.array([est[j][idx[j]] for j in range(3)])
+            V = np.array([[cov[i][j][idx[i], idx[j]] for j in range(3)] for i in range(3)])
+            D = np.array([[1, -1, 0], [0, 1, -1]])
+            diff = D @ b
+            chi2 = float(diff @ np.linalg.solve(D @ V @ D.T, diff))
+            from scipy.stats import chi2 as chi2_dist
+            row = dict(model=model, term=t, ordinal=ordinal.loc[(model, t), "coef"],
+                       ordinal_se=ordinal.loc[(model, t), "se"])
+            for (cut, label), bj, vj in zip(PO_CUTS, b, np.diag(V)):
+                row[label] = bj
+                row[label + " se"] = np.sqrt(vj)
+            row.update(chi2=chi2, p=float(chi2_dist.sf(chi2, 2)))
+            rows.append(row)
+    out = pd.DataFrame(rows)
+    out.to_csv(os.path.join(out_dir, "po_check.csv"), index=False)
+    show = out[["model", "term"]].copy()
+    show["ordinal"] = [f"{e:+.3f} ({s:.3f})" for e, s in zip(out["ordinal"], out["ordinal_se"])]
+    for _, label in PO_CUTS:
+        show[label] = [f"{e:+.3f} ({s:.3f})" for e, s in zip(out[label], out[label + " se"])]
+    show["equal? p"] = out["p"].map(lambda p: f"{p:.3f}{' *' if p < 0.05 else ''}")
+    print("\nproportional-odds check (yes/no logits at each cut; * = slopes differ, p < 0.05):")
+    print(show.to_string(index=False))
+    return out
 
 
 def report_classes(coefs, adapt):
@@ -621,6 +694,8 @@ def main():
     ap.add_argument("--storm-min", type=float, default=0.5,
                     help="--outcome classes: keep months with rx5_rl_ratio at or above this")
     ap.add_argument("--compare", help="--outcome classes: coefs.csv of a dollars run to compare with")
+    ap.add_argument("--po-check", action="store_true",
+                    help="--outcome classes: test the proportional-odds assumption (po_check.csv)")
     ap.add_argument("--out-dir", default="results/adjustment")
     args = ap.parse_args()
 
@@ -646,6 +721,8 @@ def main():
         report_classes(coefs, adapt)
         if args.compare:
             compare(coefs, args.compare, args.out_dir)
+        if args.po_check:
+            po_check(data, adapt, rest, coefs, args.out_dir)
     else:
         summary_table(coefs, adapt).to_csv(os.path.join(args.out_dir, "summary.csv"))
         report(coefs, adapt)

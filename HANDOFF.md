@@ -59,7 +59,24 @@ dollars results exactly.
   and from +0.235 to +0.085 (not clear) in Missouri. Most of it is the ratio giving wet counties
   more rain for the same "relative" storm (wettest-quarter counties average 109 mm in these storm
   months, the driest quarter 60 mm).
-- Proportional odds (one coefficient for every cut) is assumed, not yet tested.
+- **Proportional-odds check** (`--po-check`, `po_check.csv`): M3 and M4 refitted as yes/no logits
+  for any loss, $100k+ and $1M+, with a county-clustered test that each term's three slopes are
+  equal (checked on simulated data: no false flags when the assumption holds; catches a varying
+  slope). 12 states:
+  - **Storm and exposure grow with severity** (storm 2.43 / 3.40 / 3.89; built-up area 0.27 /
+    0.47 / 0.69): not proportional, so the ordinal coefficient is an average. Adjusting raises the
+    storm effect at every cut (M0 -> M3: 1.64 -> 2.43, 2.78 -> 3.40, 3.27 -> 3.89).
+  - **Climate holds** (0.21 / 0.19 / 0.18, p = 0.52).
+  - **Storm x insurance** -0.21 (SE 0.08, clear) / -0.01 (0.12) / -0.29 (0.16): clearest for
+    whether any loss occurs; p = 0.04 for equal slopes.
+  - **Storm x pre-1980** -0.17 / -0.46 / -0.73: grows with severity, clear at $100k+ and $1M+.
+  - Income, wetlands, CRS: no single cut clearly different from zero except CRS at $1M+ (+0.33,
+    SE 0.16, about 2 SE, unexpected direction; one of many tests).
+  - Missouri: storm and exposure also grow with severity; storm x insurance -0.26 / -0.42 / -0.62,
+    equal-slopes p = 0.53, none clear alone. The $100k+ and $1M+ fits leave out 923 rows in
+    months with no such loss (Jan-Mar, Sep, Oct).
+  - Reading: the directions of the main results hold at every cut; magnitudes differ. Report the
+    ordinal model as the summary and the three-cut table for storm, exposure and the d terms.
 
 ## Loss classes instead of dollars (2026-11-14)
 
