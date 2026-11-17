@@ -32,9 +32,24 @@ Checks: Q3 with each other preparedness measure in place of insurance; a linear 
 (OLS on the 0/1 outcome, coefficients are probability changes); storm size relative to the
 county's 10-year level (the course design); and expected dollars by Poisson regression (PPML).
 
+--design nested (added 2026-11-17; the design of report Section 3.5): the course design's five
+nested models on the same rows, with the interpretable variables above and all five preparedness
+measures (insurance the main one), each centred at its average:
+  M0 rain + built + background
+  M1 M0 + climate
+  M2 M0 + insurance, income, pre-1980 homes, wetland, any CRS community
+  M3 M0 + climate + the five preparedness measures
+  M4 M3 + rain x each preparedness measure
+Reported for both outcomes: the rain effect (+25 mm) in every model; the climate effect (+25 mm,
+same rain) in M1, M3, M4; built-up area doubled and each preparedness measure in M3 (reference
+only); and from M4, the rain effect at low vs high values of each preparedness measure (10th vs
+90th percentile; CRS no vs yes) with the difference. Checks: a linear probability model, storm
+size relative to the 10-year level, and flood history added to M2-M4.
+
 Usage:
     pip install statsmodels matplotlib
-    python causal_model.py --out-dir results/causal_midwest
+    python causal_model.py --design nested --out-dir results/causal_nested_midwest
+    python causal_model.py --out-dir results/causal_midwest            (four questions)
     python causal_model.py --state MO --out-dir results/causal_missouri
 """
 
@@ -171,10 +186,159 @@ def row(question, outcome, label, est, se, base=None, note=""):
                 clear=abs(est) > 1.96 * se, base_pct=None if base is None else 100 * base, note=note)
 
 
+PREP = [("ins", "flood insurance (per 100 homes)"), ("inc", "median income ($10k)"),
+        ("pre", "homes built before 1980 (10 pts)"), ("wet", "wetland share (5 pts)"),
+        ("crs", "any CRS community (no/yes)")]
+NESTED = {"M0": "rain + built", "M1": "rain + built + climate",
+          "M2": "rain + built + {P}", "M3": "rain + built + climate + {P}",
+          "M4": "rain + built + climate + {P} + {I}"}
+
+
+def levels(d, c):
+    """Low and high values of a centred preparedness measure: 10th/90th percentile, CRS no/yes."""
+    raw = d[c + "_raw"]
+    if c == "crs":
+        return 0.0 - raw.mean(), 1.0 - raw.mean(), "no", "yes"
+    a, b = raw.quantile([0.1, 0.9]).to_numpy()
+    return a - raw.mean(), b - raw.mean(), f"{a:.2f}", f"{b:.2f}"
+
+
+def rain_at(res, d, c, lo, hi):
+    """Rain effect (+25 mm) with measure c set low, set high, and high minus low (delta SEs)."""
+    V = res.cov_params().to_numpy()
+    gs = [ame(res, d, f)[3] for f in [setcol(c, lo), both(setcol(c, lo), plus("rain")),
+                                     setcol(c, hi), both(setcol(c, hi), plus("rain"))]]
+    el, sl = ame_diff(res, d, setcol(c, lo), both(setcol(c, lo), plus("rain")))
+    eh, sh = ame_diff(res, d, setcol(c, hi), both(setcol(c, hi), plus("rain")))
+    g = (gs[3] - gs[2]) - (gs[1] - gs[0])
+    return (el, sl), (eh, sh), (eh - el, float(np.sqrt(g @ V @ g)))
+
+
+def nested(d, B, out_dir):
+    P = " + ".join(c for c, _ in PREP)
+    I = " + ".join(f"rain:{c}" for c, _ in PREP)
+    forms = {m: f.format(P=P, I=I) for m, f in NESTED.items()}
+    eff, coefs, checks, curves = [], [], [], {}
+    for y, yname in OUTCOMES.items():
+        print(f"\n===== outcome: {yname} (base rate {d[y].mean():.2%})")
+        fits = {m: fit(f"{y} ~ {f} + {B}", d) for m, f in forms.items()}
+        for m, r in fits.items():
+            e, s, base, _ = ame(r, d, plus("rain"))
+            eff.append(row(m, y, "rain +25 mm", e, s, base))
+            if "climate" in forms[m]:
+                e, s, base, _ = ame(r, d, plus("climate"))
+                eff.append(row(m, y, "climate +25 mm (same rain)", e, s, base))
+            for t in r.params.index:
+                if not t.startswith(("C(", "Intercept")):
+                    coefs.append(dict(outcome=y, model=m, term=t, coef=r.params[t], se=r.bse[t]))
+        e, s, base, _ = ame(fits["M3"], d, plus("built"))
+        eff.append(row("M3", y, "built-up area doubled", e, s, base))
+        for c, label in PREP:                                   # main effects: reference only
+            lo, hi, tl, th = levels(d, c)
+            if c == "crs":                                      # switching every county no -> yes
+                e, s = ame_diff(fits["M3"], d, setcol(c, lo), setcol(c, hi))
+            else:
+                e, s, _, _ = ame(fits["M3"], d, plus(c))
+            eff.append(row("M3", y, f"{label} +1 step (reference only)", e, s, d[y].mean()))
+        for c, label in PREP:                                   # M4: does rain do less harm?
+            lo, hi, tl, th = levels(d, c)
+            (el, sl), (eh, sh), (df, sd) = rain_at(fits["M4"], d, c, lo, hi)
+            eff.append(row("M4", y, f"rain +25 mm, {label} low ({tl})", el, sl, d[y].mean()))
+            eff.append(row("M4", y, f"rain +25 mm, {label} high ({th})", eh, sh, d[y].mean()))
+            eff.append(row("M4", y, f"difference, {label} high minus low", df, sd, d[y].mean()))
+        curves[y] = fits["M4"]
+
+        # ---- checks ----
+        o3 = fit(f"{y} ~ {forms['M3']} + {B}", d, "ols")
+        o4 = fit(f"{y} ~ {forms['M4']} + {B}", d, "ols")
+        o0 = fit(f"{y} ~ {forms['M0']} + {B}", d, "ols")
+        for lab, r, t in [("M0 rain +25 mm", o0, "rain"), ("M3 rain +25 mm", o3, "rain"),
+                          ("M3 climate +25 mm", o3, "climate"),
+                          ("M4 rain x insurance (per 1/100 homes)", o4, "rain:ins")]:
+            checks.append(dict(check="linear probability model", outcome=y, measure=lab,
+                               pts=100 * r.params[t], se_pts=100 * r.bse[t],
+                               clear=abs(r.params[t]) > 1.96 * r.bse[t]))
+        for m in ["M0", "M3"]:
+            rr = fit(f"{y} ~ {forms[m].replace('rain', 'ratio')} + {B}", d)
+            e, s, _, _ = ame(rr, d, plus("ratio"))
+            checks.append(dict(check="relative storm (per 0.1 of 10-year level)", outcome=y,
+                               measure=f"{m} storm effect", pts=100 * e, se_pts=100 * s, clear=abs(e) > 1.96 * s))
+        for m in ["M2", "M3", "M4"]:
+            rh = fit(f"{y} ~ {forms[m]} + history + {B}", d)
+            e, s, _, _ = ame(rh, d, plus("rain"))
+            checks.append(dict(check="flood history added", outcome=y, measure=f"{m} rain +25 mm",
+                               pts=100 * e, se_pts=100 * s, clear=abs(e) > 1.96 * s))
+            if m == "M4":
+                lo, hi, _, _ = levels(d, "ins")
+                _, _, (df, sd) = rain_at(rh, d, "ins", lo, hi)
+                checks.append(dict(check="flood history added", outcome=y,
+                                   measure="M4 rain effect, insurance high minus low",
+                                   pts=100 * df, se_pts=100 * sd, clear=abs(df) > 1.96 * sd))
+
+    eff, checks = pd.DataFrame(eff), pd.DataFrame(checks)
+    eff.to_csv(os.path.join(out_dir, "effects.csv"), index=False)
+    checks.to_csv(os.path.join(out_dir, "checks.csv"), index=False)
+    pd.DataFrame(coefs).to_csv(os.path.join(out_dir, "coefs.csv"), index=False)
+    show = eff.copy()
+    show["effect (pts)"] = [f"{p:+.3f} [{l:+.3f}, {h:+.3f}]{' *' if c else ''}"
+                            for p, l, h, c in zip(show.pts, show.lo, show.hi, show.clear)]
+    print("\neffects: average change in probability, percentage points [95% interval]; * clear")
+    print(show[["question", "outcome", "effect", "effect (pts)", "base_pct"]].round(3).to_string(index=False))
+    print("\nchecks:")
+    print(checks.round(3).to_string(index=False))
+    plot_nested(d, eff, curves, out_dir)
+
+
+def plot_nested(d, eff, curves, out_dir):
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError:
+        return
+    # 1. rain effect in M0-M4, both outcomes
+    fig, axes = plt.subplots(1, 2, figsize=(9, 3.4))
+    for ax, (y, yname) in zip(axes, OUTCOMES.items()):
+        sub = eff[(eff.outcome == y) & (eff.effect == "rain +25 mm")]
+        x = np.arange(len(sub))
+        ax.errorbar(x, sub.pts, yerr=[sub.pts - sub.lo, sub.hi - sub.pts], fmt="o", capsize=4, color="#1f5fa8")
+        ax.set_xticks(x, sub.question)
+        ax.set_ylabel("change in chance (percentage points)")
+        ax.set_title(f"Chance of {yname}: effect of 25 mm more rain", fontsize=9)
+    fig.tight_layout()
+    fig.savefig(os.path.join(out_dir, "plot_rain_effect_models.png"), dpi=200)
+    plt.close(fig)
+    # 2. M4: chance of damage against rain at low and high insurance, others at observed values
+    lo, hi, tl, th = levels(d, "ins")
+    grid = np.arange(0, 201, 10) / 25
+    fig, axes = plt.subplots(1, 2, figsize=(9, 3.6))
+    for ax, (y, yname) in zip(axes, OUTCOMES.items()):
+        r = curves[y]
+        di, b = r.model.data.model_spec, r.params.to_numpy()
+        for ins, color, lab in [(lo, "#c0504d", f"low insurance ({tl}/100 homes)"),
+                                (hi, "#1f5fa8", f"high insurance ({th}/100 homes)")]:
+            p = []
+            for g in grid:
+                x = d.copy()
+                x["rain"], x["ins"] = g, ins
+                X = np.asarray(patsy.build_design_matrices([di], x)[0])
+                p.append(100 * expit(X @ b).mean())
+            ax.plot(grid * 25, p, color=color, label=lab)
+        ax.set_xlabel("rain in the month's wettest 5 days (mm)")
+        ax.set_ylabel(f"chance of {yname} (%)")
+        ax.set_title(f"{yname.capitalize()} (M4)", fontsize=10)
+    axes[0].legend(frameon=False, fontsize=8)
+    fig.tight_layout()
+    fig.savefig(os.path.join(out_dir, "plot_rain_insurance.png"), dpi=200)
+    plt.close(fig)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--panel", default="model_panel.csv")
     ap.add_argument("--state")
+    ap.add_argument("--design", choices=["questions", "nested"], default="questions",
+                    help="questions: the four-question design; nested: the course design M0-M4")
     ap.add_argument("--out-dir", default="results/causal_midwest")
     args = ap.parse_args()
     os.makedirs(args.out_dir, exist_ok=True)
@@ -184,6 +348,18 @@ def main():
 
     d = load(args.panel, args.state)
     B = bg(d)
+    if args.design == "nested":
+        print(f"rows {len(d):,}, counties {d['GEOID'].nunique()}; any damage {d['any'].mean():.2%}, "
+              f"loss $100k+ {d['major'].mean():.2%}")
+        print("preparedness (raw) means and 10th/90th pct:")
+        for c, label in PREP:
+            r = d[c + "_raw"]
+            print(f"  {label}: mean {r.mean():.3f}, p10 {r.quantile(.1):.3f}, p90 {r.quantile(.9):.3f}")
+        print("correlations among preparedness measures:")
+        print(d[[c + "_raw" for c, _ in PREP]].corr().round(2).to_string())
+        nested(d, B, args.out_dir)
+        print(f"\nresults in {args.out_dir}")
+        return
     q10, q90 = d["ins_raw"].quantile([0.1, 0.9]).to_numpy()
     lo, hi = q10 - d["ins_raw"].mean(), q90 - d["ins_raw"].mean()
     print(f"rows {len(d):,}, counties {d['GEOID'].nunique()}; any damage {d['any'].mean():.2%}, "

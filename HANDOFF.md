@@ -3,7 +3,7 @@
 Read this first when picking up the project in a new session. It summarizes the
 work through 2026-11-01 on branch `enci-dev` (pull request #1 into `main`).
 
-**Newest work:** [Causal model with interpretable variables (2026-11-17)](#causal-model-with-interpretable-variables-2026-11-17).
+**Newest work:** [Causal model, nested design (2026-11-17)](#causal-model-nested-design-2026-11-17). Before that: [Causal model with interpretable variables (2026-11-17)](#causal-model-with-interpretable-variables-2026-11-17).
 **Before that:** [Adjustment as an ordered logit on loss classes (2026-11-15)](#adjustment-as-an-ordered-logit-on-loss-classes-2026-11-15), then [Loss classes instead of dollars (2026-11-14)](#loss-classes-instead-of-dollars-2026-11-14), then [Midwest explorer app (2026-11-13)](#midwest-explorer-app-2026-11-13), then
 [Climate and adaptation adjustment (2026-11-10 to 2026-11-11)](#climate-and-adaptation-adjustment-2026-11-10-to-2026-11-11),
 then [Latest session (2026-11-08 to 2026-11-09)](#latest-session-2026-11-08-to-2026-11-09)
@@ -51,6 +51,48 @@ ordered-logit adjustment for the report (Section 3.5):
   (PPML): +165% per 25 mm of rain, +126% per doubling of built-up area.
 - Report Sections 4.4, the abstract and limitations still describe the ordered-logit results and
   need rewriting with these.
+
+## Causal model, nested design (2026-11-17)
+
+Report Section 3.5 now follows the course one-pager's five nested models with the instructor's
+later advice (interpretable variables, no ratio, no log loss). `causal_model.py --design nested`
+(the four-question design stays the default `--design questions`):
+
+- Rows: all 164,580 county-months 2011-2023, 12 states (any damage 2.85%, $100k+ 1.05%).
+- Variables: rain in the wettest 5 days per 25 mm; climate (10-year 5-day rain) per 25 mm;
+  built-up area per doubling; five preparedness measures centred at their means (insurance per
+  100 homes, income per $10k, pre-1980 homes per 10 points, wetland per 5 points, any CRS
+  community yes/no); background soil, snowpack, frost days, low-lying land, month, state.
+- M0 rain+built; M1 +climate; M2 +preparedness; M3 +both; M4 +rain x each preparedness.
+- Logistic regressions, county-clustered SEs; effects are average changes in probability
+  (percentage points) with delta-method SEs.
+
+```powershell
+python causal_model.py --design nested --out-dir results/causal_nested_midwest
+```
+
+| Effect (percentage points) | Any damage | $100k+ loss |
+|---|---|---|
+| Rain +25 mm, M0 / M3 | +2.94 / +2.87 | +1.29 / +1.30 |
+| Climate +25 mm, same rain (M3) | +0.30 (borderline) | **-0.12** |
+| Built-up area doubled (M3) | +0.59 | +0.37 |
+| Rain effect, insurance high minus low (M4) | **+0.43** (more harm, not less) | +0.08 (not clear) |
+| Rain effect, income high minus low (M4) | **-1.07** | **-0.37** |
+| Pre-1980, wetland, CRS (M4) | none clear | none clear |
+
+- 25 mm more rain about doubles the chance of any damage and of a $100k+ loss.
+- **Adjusting barely changes the rain effect** (M0 to M3) with rain in mm. With the relative storm
+  measure (check) it rises 1.16 -> 1.28 points per 0.1: the earlier "adjusting raises the storm
+  effect" came from the ratio mixing storm and climate.
+- **Climate:** for the same rain, wetter-climate counties are slightly less likely to have a
+  $100k+ loss (-0.12 points per 25 mm), consistent with adaptation; for any damage the effect is
+  small and borderline (and zero in the linear check).
+- **Insurance does not soften storms here:** the rain effect is larger in high-insurance counties
+  (+0.43 points); adding flood history halves it (+0.22) but it stays positive. Likely counties
+  on flood-prone rivers both insure more and respond more to rain. **Income is the clear
+  moderator:** the rain effect is about a third smaller in richer counties.
+- Checks: linear probability model gives the same signs; flood history barely moves the rain
+  effect.
 
 ## Adjustment as an ordered logit on loss classes (2026-11-15)
 

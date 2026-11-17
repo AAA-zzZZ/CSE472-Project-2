@@ -1,0 +1,106 @@
+causal_model.py --design nested --out-dir results/causal_nested_midwest
+county-months 2011-2023: 164,580; dropped 0 with a missing input
+rows 164,580, counties 1055; any damage 2.85%, loss $100k+ 1.05%
+preparedness (raw) means and 10th/90th pct:
+  flood insurance (per 100 homes): mean 0.842, p10 0.046, p90 1.818
+  median income ($10k): mean 6.601, p10 5.264, p90 8.043
+  homes built before 1980 (10 pts): mean 6.625, p10 4.923, p90 8.166
+  wetland share (5 pts): mean 1.072, p10 0.059, p90 2.981
+  any CRS community (no/yes): mean 0.156, p10 0.000, p90 1.000
+correlations among preparedness measures:
+         ins_raw  inc_raw  pre_raw  wet_raw  crs_raw
+ins_raw     1.00     0.05     0.00    -0.06     0.18
+inc_raw     0.05     1.00    -0.35    -0.02     0.29
+pre_raw     0.00    -0.35     1.00    -0.22    -0.19
+wet_raw    -0.06    -0.02    -0.22     1.00    -0.03
+crs_raw     0.18     0.29    -0.19    -0.03     1.00
+
+===== outcome: any damage (base rate 2.85%)
+
+===== outcome: loss of $100k+ (base rate 1.05%)
+
+effects: average change in probability, percentage points [95% interval]; * clear
+question outcome                                                      effect              effect (pts)  base_pct
+      M0     any                                                 rain +25 mm +2.939 [+2.762, +3.115] *     2.855
+      M1     any                                                 rain +25 mm +2.894 [+2.716, +3.073] *     2.855
+      M1     any                                  climate +25 mm (same rain) +0.395 [+0.105, +0.686] *     2.855
+      M2     any                                                 rain +25 mm +2.904 [+2.737, +3.071] *     2.855
+      M3     any                                                 rain +25 mm +2.873 [+2.703, +3.043] *     2.855
+      M3     any                                  climate +25 mm (same rain) +0.295 [+0.014, +0.576] *     2.855
+      M4     any                                                 rain +25 mm +2.910 [+2.740, +3.080] *     2.855
+      M4     any                                  climate +25 mm (same rain) +0.298 [+0.016, +0.580] *     2.855
+      M3     any                                       built-up area doubled +0.587 [+0.398, +0.776] *     2.855
+      M3     any    flood insurance (per 100 homes) +1 step (reference only) +0.317 [+0.191, +0.443] *     2.855
+      M3     any               median income ($10k) +1 step (reference only) -0.477 [-0.637, -0.318] *     2.855
+      M3     any   homes built before 1980 (10 pts) +1 step (reference only)   -0.079 [-0.255, +0.098]     2.855
+      M3     any              wetland share (5 pts) +1 step (reference only) -0.200 [-0.344, -0.057] *     2.855
+      M3     any         any CRS community (no/yes) +1 step (reference only)   +0.287 [-0.172, +0.747]     2.855
+      M4     any     rain +25 mm, flood insurance (per 100 homes) low (0.05) +2.706 [+2.519, +2.893] *     2.855
+      M4     any    rain +25 mm, flood insurance (per 100 homes) high (1.82) +3.133 [+2.907, +3.359] *     2.855
+      M4     any  difference, flood insurance (per 100 homes) high minus low +0.426 [+0.194, +0.659] *     2.855
+      M4     any                rain +25 mm, median income ($10k) low (5.26) +3.516 [+3.153, +3.879] *     2.855
+      M4     any               rain +25 mm, median income ($10k) high (8.04) +2.442 [+2.188, +2.695] *     2.855
+      M4     any             difference, median income ($10k) high minus low -1.074 [-1.586, -0.563] *     2.855
+      M4     any    rain +25 mm, homes built before 1980 (10 pts) low (4.92) +2.991 [+2.636, +3.347] *     2.855
+      M4     any   rain +25 mm, homes built before 1980 (10 pts) high (8.17) +2.835 [+2.524, +3.146] *     2.855
+      M4     any difference, homes built before 1980 (10 pts) high minus low   -0.156 [-0.729, +0.417]     2.855
+      M4     any               rain +25 mm, wetland share (5 pts) low (0.06) +2.997 [+2.760, +3.235] *     2.855
+      M4     any              rain +25 mm, wetland share (5 pts) high (2.98) +2.810 [+2.455, +3.165] *     2.855
+      M4     any            difference, wetland share (5 pts) high minus low   -0.188 [-0.660, +0.285]     2.855
+      M4     any            rain +25 mm, any CRS community (no/yes) low (no) +2.850 [+2.665, +3.035] *     2.855
+      M4     any          rain +25 mm, any CRS community (no/yes) high (yes) +3.183 [+2.727, +3.638] *     2.855
+      M4     any       difference, any CRS community (no/yes) high minus low   +0.333 [-0.164, +0.829]     2.855
+      M0   major                                                 rain +25 mm +1.294 [+1.201, +1.387] *     1.055
+      M1   major                                                 rain +25 mm +1.308 [+1.214, +1.402] *     1.055
+      M1   major                                  climate +25 mm (same rain)   -0.096 [-0.199, +0.006]     1.055
+      M2   major                                                 rain +25 mm +1.287 [+1.196, +1.378] *     1.055
+      M3   major                                                 rain +25 mm +1.304 [+1.212, +1.396] *     1.055
+      M3   major                                  climate +25 mm (same rain) -0.120 [-0.217, -0.023] *     1.055
+      M4   major                                                 rain +25 mm +1.315 [+1.222, +1.409] *     1.055
+      M4   major                                  climate +25 mm (same rain) -0.121 [-0.218, -0.024] *     1.055
+      M3   major                                       built-up area doubled +0.374 [+0.277, +0.470] *     1.055
+      M3   major    flood insurance (per 100 homes) +1 step (reference only) +0.059 [+0.011, +0.107] *     1.055
+      M3   major               median income ($10k) +1 step (reference only) -0.124 [-0.186, -0.061] *     1.055
+      M3   major   homes built before 1980 (10 pts) +1 step (reference only)   +0.045 [-0.030, +0.121]     1.055
+      M3   major              wetland share (5 pts) +1 step (reference only) -0.073 [-0.132, -0.014] *     1.055
+      M3   major         any CRS community (no/yes) +1 step (reference only)   -0.029 [-0.232, +0.173]     1.055
+      M4   major     rain +25 mm, flood insurance (per 100 homes) low (0.05) +1.277 [+1.169, +1.386] *     1.055
+      M4   major    rain +25 mm, flood insurance (per 100 homes) high (1.82) +1.358 [+1.245, +1.472] *     1.055
+      M4   major  difference, flood insurance (per 100 homes) high minus low   +0.081 [-0.037, +0.199]     1.055
+      M4   major                rain +25 mm, median income ($10k) low (5.26) +1.522 [+1.347, +1.696] *     1.055
+      M4   major               rain +25 mm, median income ($10k) high (8.04) +1.157 [+1.026, +1.287] *     1.055
+      M4   major             difference, median income ($10k) high minus low -0.365 [-0.604, -0.126] *     1.055
+      M4   major    rain +25 mm, homes built before 1980 (10 pts) low (4.92) +1.249 [+1.087, +1.411] *     1.055
+      M4   major   rain +25 mm, homes built before 1980 (10 pts) high (8.17) +1.375 [+1.193, +1.556] *     1.055
+      M4   major difference, homes built before 1980 (10 pts) high minus low   +0.126 [-0.162, +0.414]     1.055
+      M4   major               rain +25 mm, wetland share (5 pts) low (0.06) +1.348 [+1.213, +1.482] *     1.055
+      M4   major              rain +25 mm, wetland share (5 pts) high (2.98) +1.323 [+1.111, +1.535] *     1.055
+      M4   major            difference, wetland share (5 pts) high minus low   -0.024 [-0.306, +0.258]     1.055
+      M4   major            rain +25 mm, any CRS community (no/yes) low (no) +1.334 [+1.225, +1.443] *     1.055
+      M4   major          rain +25 mm, any CRS community (no/yes) high (yes) +1.238 [+1.021, +1.455] *     1.055
+      M4   major       difference, any CRS community (no/yes) high minus low   -0.096 [-0.348, +0.156]     1.055
+
+checks:
+                                    check outcome                                  measure    pts  se_pts  clear
+                 linear probability model     any                           M0 rain +25 mm  4.169   0.132   True
+                 linear probability model     any                           M3 rain +25 mm  4.149   0.130   True
+                 linear probability model     any                        M3 climate +25 mm  0.027   0.120  False
+                 linear probability model     any    M4 rain x insurance (per 1/100 homes)  0.219   0.109   True
+relative storm (per 0.1 of 10-year level)     any                          M0 storm effect  1.159   0.039   True
+relative storm (per 0.1 of 10-year level)     any                          M3 storm effect  1.281   0.037   True
+                      flood history added     any                           M2 rain +25 mm  2.852   0.068   True
+                      flood history added     any                           M3 rain +25 mm  2.859   0.070   True
+                      flood history added     any                           M4 rain +25 mm  2.894   0.069   True
+                      flood history added     any M4 rain effect, insurance high minus low  0.219   0.084   True
+                 linear probability model   major                           M0 rain +25 mm  2.118   0.091   True
+                 linear probability model   major                           M3 rain +25 mm  2.135   0.091   True
+                 linear probability model   major                        M3 climate +25 mm -0.234   0.048   True
+                 linear probability model   major    M4 rain x insurance (per 1/100 homes)  0.042   0.059  False
+relative storm (per 0.1 of 10-year level)   major                          M0 storm effect  0.516   0.019   True
+relative storm (per 0.1 of 10-year level)   major                          M3 storm effect  0.552   0.018   True
+                      flood history added   major                           M2 rain +25 mm  1.271   0.044   True
+                      flood history added   major                           M3 rain +25 mm  1.295   0.044   True
+                      flood history added   major                           M4 rain +25 mm  1.311   0.045   True
+                      flood history added   major M4 rain effect, insurance high minus low  0.028   0.054  False
+
+results in results/causal_nested_midwest
