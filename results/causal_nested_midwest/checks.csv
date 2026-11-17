@@ -1,0 +1,21 @@
+check,outcome,measure,pts,se_pts,clear
+linear probability model,any,M0 rain +25 mm,4.16894134595527,0.1317524248771161,True
+linear probability model,any,M3 rain +25 mm,4.1490305950430395,0.13011551156308762,True
+linear probability model,any,M3 climate +25 mm,0.027044821929194628,0.1197169280905127,False
+linear probability model,any,M4 rain x insurance (per 1/100 homes),0.21908124799512435,0.10876463725125551,True
+relative storm (per 0.1 of 10-year level),any,M0 storm effect,1.1594023339349002,0.03890504732084944,True
+relative storm (per 0.1 of 10-year level),any,M3 storm effect,1.2809916143012454,0.03650709464549907,True
+flood history added,any,M2 rain +25 mm,2.8523308858889207,0.06841369428727366,True
+flood history added,any,M3 rain +25 mm,2.8588253220333395,0.06977111035106215,True
+flood history added,any,M4 rain +25 mm,2.894211583088934,0.06916458067119854,True
+flood history added,any,"M4 rain effect, insurance high minus low",0.21881933610793103,0.08437546516750011,True
+linear probability model,major,M0 rain +25 mm,2.1175720244332097,0.09088273818452901,True
+linear probability model,major,M3 rain +25 mm,2.1347602413247153,0.09098369174751617,True
+linear probability model,major,M3 climate +25 mm,-0.23443207453435352,0.047994418468598275,True
+linear probability model,major,M4 rain x insurance (per 1/100 homes),0.0418129699139823,0.05893765106905171,False
+relative storm (per 0.1 of 10-year level),major,M0 storm effect,0.5160406291774426,0.01858960867284453,True
+relative storm (per 0.1 of 10-year level),major,M3 storm effect,0.5517324507696484,0.018014307519186857,True
+flood history added,major,M2 rain +25 mm,1.2713191546859557,0.043872960182907955,True
+flood history added,major,M3 rain +25 mm,1.295340820723856,0.04402737655443848,True
+flood history added,major,M4 rain +25 mm,1.310884925605635,0.04480925599924738,True
+flood history added,major,"M4 rain effect, insurance high minus low",0.02795506533850127,0.05363013770078194,False
