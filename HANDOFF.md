@@ -3,13 +3,54 @@
 Read this first when picking up the project in a new session. It summarizes the
 work through 2026-11-01 on branch `enci-dev` (pull request #1 into `main`).
 
-**Newest work:** [Adjustment as an ordered logit on loss classes (2026-11-15)](#adjustment-as-an-ordered-logit-on-loss-classes-2026-11-15).
-**Before that:** [Loss classes instead of dollars (2026-11-14)](#loss-classes-instead-of-dollars-2026-11-14), then [Midwest explorer app (2026-11-13)](#midwest-explorer-app-2026-11-13), then
+**Newest work:** [Causal model with interpretable variables (2026-11-17)](#causal-model-with-interpretable-variables-2026-11-17).
+**Before that:** [Adjustment as an ordered logit on loss classes (2026-11-15)](#adjustment-as-an-ordered-logit-on-loss-classes-2026-11-15), then [Loss classes instead of dollars (2026-11-14)](#loss-classes-instead-of-dollars-2026-11-14), then [Midwest explorer app (2026-11-13)](#midwest-explorer-app-2026-11-13), then
 [Climate and adaptation adjustment (2026-11-10 to 2026-11-11)](#climate-and-adaptation-adjustment-2026-11-10-to-2026-11-11),
 then [Latest session (2026-11-08 to 2026-11-09)](#latest-session-2026-11-08-to-2026-11-09)
 below, then `yana_workspace/HANDOFF2.md` to `HANDOFF4.md` (the teammate's sessions: 5-county
 design, Route 2 with PRISM, the PRISM refit). The sections after the latest session describe the
 original NOAA design and are kept as history.
+
+## Causal model with interpretable variables (2026-11-17)
+
+Instructor feedback: the causal model needs interpretable variables (no derived ratios, no
+log-loss outcome) and should show the effect of each variable. `causal_model.py` replaces the
+ordered-logit adjustment for the report (Section 3.5):
+
+- Rows: all county-months 2011-2023, 12 states (164,580; no storm threshold). Outcomes: any damage
+  (2.85%) and a loss of $100k+ (1.05%).
+- Variables: rain in the wettest 5 days (per 25 mm), climate = 10-year 5-day rain (per 25 mm),
+  built-up area (per doubling), insurance per 100 homes, flood history = damaged months a year
+  over the previous 10 years; background = soil wetness, snowpack, days below freezing,
+  low-lying land, month, state.
+- Four questions, each with its own controls (Q1 rain, Q2 climate, Q3 rain x insurance with flood
+  history, Q4 built-up). Logistic regressions, county-clustered SEs; effects are average changes
+  in probability (checked equal to statsmodels get_margeff).
+
+`python causal_model.py --out-dir results/causal_midwest` (about 2.5 minutes).
+
+| Effect (percentage points) | Any damage (base 2.85%) | $100k+ (base 1.05%) |
+|---|---|---|
+| Q1 rain +25 mm, no controls | +2.65 | +1.05 |
+| Q1 rain +25 mm, controlled | **+2.89** | **+1.31** |
+| Q2 climate +25 mm, same rain | +0.40 (clear, small) | -0.10 (not clear) |
+| Q3 rain +25 mm, low / high insurance | 2.75 / 2.98, difference **+0.24** (clear) | 1.29 / 1.30, difference +0.01 |
+| Q3 flood history +1 damaged month a year | +4.10 | +0.86 |
+| Q4 built-up area doubled | +0.49 | +0.31 |
+
+- Rain about doubles the chance of damage per 25 mm; controls raise its effect a little.
+- Wetter climates give no protection for the same rain.
+- **With flood history controlled, insurance no longer softens storms**: for any damage the rain
+  effect is slightly larger where insurance is high; for $100k+ there is no difference. The
+  earlier "insurance softens storms" result (ordered logit, relative storm, no flood history) does
+  not hold in this design.
+- Checks: higher income softens rain's effect (any -0.32, $100k+ -0.27 points, both clear); more
+  pre-1980 homes steepen it for $100k+ (+0.33, clear); CRS and wetlands show nothing consistent.
+  The linear probability model agrees in direction. With the relative storm measure, climate turns
+  clearly positive again (+2.0 points), the measurement artifact found before. Expected dollars
+  (PPML): +165% per 25 mm of rain, +126% per doubling of built-up area.
+- Report Sections 4.4, the abstract and limitations still describe the ordered-logit results and
+  need rewriting with these.
 
 ## Adjustment as an ordered logit on loss classes (2026-11-15)
 
