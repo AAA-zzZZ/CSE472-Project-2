@@ -4,8 +4,9 @@ This lists every script and data folder that creates the flood-loss models or su
 them, in pipeline order. Each entry gives its path from the repository root, what it does, what
 is inside, and for data, where it came from and how and why it was changed.
 
-Traced on 2026-11-14 on branch `enci-dev`. It replaces `cleaned_items/used_files.md`
-(2026-11-08), which does not include the loss-class model, the adjustment models or the apps.
+Traced on 2026-11-14 on branch `enci-dev` and updated 2026-11-20 (causal models, ordered-logit
+adjustment runs, app version 3). It replaces `cleaned_items/used_files.md` (2026-11-08), which
+does not include the loss-class model, the adjustment and causal models or the apps.
 
 **The models in one line:** a two-part (hurdle) model for each county and month in 12 Midwest
 states (1,055 counties, 2000–2023). Part 1 gives the chance of any flood property damage; part 2
@@ -30,7 +31,8 @@ OpenFEMA       ─► openfema_features.py ────────────�
                                                            ▼
                                    merge_panel.py ─► model_panel.csv
                                                            │
-     reduced_benchmark.py, loss_class_model.py, adjustment_models.py, recalibrate.py
+     reduced_benchmark.py, loss_class_model.py, recalibrate.py   (forecast)
+     causal_model.py, adjustment_models.py                      (explanation)
                                                            │
                        build_midwest_app_table.py ─► Earth Engine explorer app
 ```
@@ -39,7 +41,9 @@ OpenFEMA       ─► openfema_features.py ────────────�
 
 ## 1. Outcome: flood property loss (SHELDUS)
 
-SHELDUS is used **only** for the outcome. Nothing derived from losses is a model input.
+SHELDUS is used for the outcome. Nothing derived from losses is an input to the forecast models.
+The one exception is a check in `causal_model.py`, which adds each county's flood history (damaged
+months per year over the previous 10 years) as a control; see section 7.
 
 ### `direct_loss_aggregated_output_32423.csv`
 - **What:** the raw SHELDUS export. One row per county, month and hazard, with property and crop
@@ -199,7 +203,7 @@ county.
   - Variable codes differ between releases, so columns are found by table code from each
     codebook.
 - **Use:** housing units (the denominator of insurance per home), income and pre-1980 share
-  feed the adjustment models and the app. They are not inputs to the forecast models.
+  feed the causal and adjustment models and the app. They are not inputs to the forecast models.
 
 ### `openfema_features.py` → `data/clean/nfip_policies_county_year.csv`, `crs_county_year.csv`, `hma_county_year.csv`
 - **What:** per county and year 1999–2022:
@@ -214,7 +218,7 @@ county.
   - Years before 2010 are left **empty, not zero**: the records start in 2009, and an unknown
     year is not a year with no policies.
   - **Policies only, never claims:** claims come from the losses being predicted.
-- **Use:** adjustment models and the app. Buyouts were tested as a forecast input
+- **Use:** causal and adjustment models and the app. Buyouts were tested as a forecast input
   (`results/*_buyouts/`) and added nothing.
 
 ---
@@ -276,11 +280,39 @@ skewed amounts.
 - **Output:** `scores.csv`, `confusion_test.csv`, `glm_ordinal_coefs.csv`, `class_counts.csv`,
   `ranking_options.csv`, `log.txt`.
 
-### `adjustment_models.py` → `results/adjustment_midwest/`, `results/adjustment_missouri/`
-- **What:** five nested regressions (M0–M4) of log10 loss on storm size. They test whether
-  adjusting for rain climate and adaptation (insurance, CRS, income, pre-1980 housing, wetlands)
-  changes the storm effect. This is for explanation, not forecasting.
-- **Output:** coefficients, summary, correlations, sample, log and three plots.
+### `causal_model.py` → `results/causal_nested_midwest/`, `results/causal_midwest/`
+- **What:** the causal models in the report (Section 3.5). They estimate the **storm effect**,
+  how much more rain raises a county's chance of flood damage, and test whether accounting for
+  rain climate and preparedness changes it. This is for explanation, not forecasting. It
+  replaced `adjustment_models.py` after the instructor asked for interpretable variables.
+- **Rows:** every county-month in 2011–2023 (the years with flood-insurance data), all 12
+  states, including months with no damage. Read from `model_panel.csv`.
+- **Outcomes:** any damage, and a loss of $100k or more (2024 dollars). Logistic regressions with
+  standard errors clustered by county.
+- **Variables, in plain units:** rain in the month's wettest 5 days (per 25 mm), the county's
+  10-year 5-day rain (per 25 mm), built-up area (per doubling), flood-insurance policies per 100
+  homes, median income, share of homes built before 1980, wetland share and whether any community
+  is in the CRS. Background controls: soil wetness, snowpack, frost days, low-lying land,
+  calendar month and state.
+- **`--design nested` → `results/causal_nested_midwest/` (current):** five nested models M0–M4
+  (M0 rain + built-up + background; M1 + climate; M2 + preparedness; M3 + both; M4 + rain ×
+  each preparedness measure). Effects are reported as average changes in the chance of damage
+  (for example, 25 mm more rain). Checks: a linear probability model, storm size relative to the
+  10-year level, and flood history (from SHELDUS, previous 10 years) added to M2–M4.
+- **Default design → `results/causal_midwest/`:** an earlier version that answers four separate
+  questions (rain, climate, insurance, built-up area), each with its own controls.
+- **Output:** `effects.csv`, `checks.csv`, `coefs.csv`, `log.txt`, and the plots
+  `plot_rain_insurance.png` (both designs) and `plot_rain_effect_models.png` (nested).
+
+### `adjustment_models.py` → `results/adjustment_midwest/`, `results/adjustment_missouri/`, `results/adjustment_classes_midwest/`, `results/adjustment_classes_missouri/`
+- **What:** the earlier version of the causal analysis, replaced by `causal_model.py`. Five
+  nested regressions (M0–M4) on storm size, testing whether adjusting for rain climate and
+  adaptation (insurance, CRS, income, pre-1980 housing, wetlands) changes the storm effect.
+  - Default (`--outcome dollars`) → `adjustment_*`: OLS on log10 loss, damage months only.
+  - `--outcome classes` → `adjustment_classes_*`: ordered logit on the loss class of every storm
+    month, damaged or not; `--po-check` adds the proportional-odds check (`po_check.csv`).
+- **Output:** coefficients, summary, correlations, sample, log and three plots; the class runs
+  also write `comparison.csv` and `po_check.csv`.
 
 ### `recalibrate.py` → `results/recalibration_midwest/`, `results/recalibration_missouri/`
 - **What:** per-state shifts so the predicted number of damage months matches recent years,
@@ -301,8 +333,11 @@ skewed amounts.
   (`reduced_benchmark.py`) and the class model (`loss_class_model.py`) on 12 states and predicts
   2017–2023. It stops unless the scores match the saved results. Output: 88,620 rows ×
   37 columns of predictions, ranks, inputs and adaptation values.
-- `flood_explorer_app2.js`: the Earth Engine app for the 12 states. It reads the table above,
-  uploaded as an Earth Engine asset.
+- `flood_explorer_app3.js` (current): the Earth Engine app for the 12 states. It reads the table
+  above, uploaded as an Earth Engine asset (`midwest_flood_app_table`). A simpler layer menu with
+  two groups: "Model predictions" (chance of any damage and the recorded SHELDUS loss class, with
+  an option to overlay one on the other) and "Model inputs" (all county input layers).
+- `flood_explorer_app2.js`: the previous version, reading the same asset.
 
 ### `yana_workspace/gee_app/missouri_tester/`
 - `build_app_table.py` → `mo_flood_app_table.csv`, `flood_explorer_app.js`: the Missouri app
@@ -318,6 +353,7 @@ skewed amounts.
 | `HANDOFF.md`, `yana_workspace/HANDOFF2.md`–`HANDOFF4.md` | Session-by-session history and decisions |
 | `docs/flood_variable_reference.xlsx` | Variable reference |
 | `docs/literature_review/`, `docs/model_selection/` | Literature and model-choice notes |
+| `docs/adjustment_results_explained.pdf` | Plain-language guide to the adjustment results (`adjustment_models.py`) |
 | `SHELDUS_Data_Documentation.pdf` | SHELDUS definitions |
 | `Data_Collection_and_Panel_Dataset (1).docx` | Data-collection guide |
 | `maps.py` → `maps/` | County maps to check inputs (display only); uses `data/counties_midwest.geojson` |
