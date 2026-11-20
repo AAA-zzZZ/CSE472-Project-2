@@ -1,0 +1,13 @@
+period,model,rank by,top 5%: share of loss,top 5%: without largest month,top 5%: major+ months caught
+validation 2013-2016,GLM: ordinal classes,P(major or worse),0.6331,0.6656,0.4563
+validation 2013-2016,GLM: ordinal classes,P(severe),0.7419,0.7185,0.4676
+validation 2013-2016,GLM: ordinal classes,expected class,0.5732,0.5604,0.4531
+validation 2013-2016,LightGBM: multiclass,P(major or worse),0.5844,0.5604,0.4579
+validation 2013-2016,LightGBM: multiclass,P(severe),0.718,0.66,0.4498
+validation 2013-2016,LightGBM: multiclass,expected class,0.585,0.561,0.4579
+test 2017-2023,GLM: ordinal classes,P(major or worse),0.6192,0.7551,0.3935
+test 2017-2023,GLM: ordinal classes,P(severe),0.6126,0.7475,0.3935
+test 2017-2023,GLM: ordinal classes,expected class,0.5736,0.6955,0.3898
+test 2017-2023,LightGBM: multiclass,P(major or worse),0.5922,0.7263,0.3995
+test 2017-2023,LightGBM: multiclass,P(severe),0.6234,0.7763,0.4128
+test 2017-2023,LightGBM: multiclass,expected class,0.525,0.6438,0.3971

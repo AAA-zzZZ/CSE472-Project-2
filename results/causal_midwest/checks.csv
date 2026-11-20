@@ -1,0 +1,23 @@
+check,outcome,measure,low,high,diff_pts,se_pts,clear
+Q3 other preparedness,any,median income ($10k),10th pct: 3.05 pts,90th pct: 2.73 pts,-0.32202544209261885,0.16381686463555487,True
+Q3 other preparedness,any,homes before 1980 (10 pts),10th pct: 2.71 pts,90th pct: 3.04 pts,0.3279797516682604,0.176710599286504,False
+Q3 other preparedness,any,wetland share (5 pts),10th pct: 2.91 pts,90th pct: 2.89 pts,-0.024638818319196523,0.18973417172212304,False
+Q3 other preparedness,any,any CRS community (no/yes),no: 2.80 pts,yes: 3.18 pts,0.3782532905646438,0.19145656854527635,True
+linear probability model,any,Q1 rain +25 mm,,,4.159109608830145,0.13059469115592248,True
+linear probability model,any,Q2 climate +25 mm,,,0.11973449464094783,0.11864665401150516,False
+linear probability model,any,Q3 rain x insurance (per 1/100 homes),,,0.23707570501260755,0.10171978205599755,True
+relative storm (per 0.1 of 10-year level),any,Q1 storm effect,,,1.28664702348037,0.03847740723801487,True
+relative storm (per 0.1 of 10-year level),any,Q2 climate +25 mm,,,2.0290431394896506,0.19147928387615853,True
+Q3 other preparedness,major,median income ($10k),10th pct: 1.45 pts,90th pct: 1.18 pts,-0.27093955321546936,0.09748041427293248,True
+Q3 other preparedness,major,homes before 1980 (10 pts),10th pct: 1.13 pts,90th pct: 1.46 pts,0.3305667377375109,0.1188075940588334,True
+Q3 other preparedness,major,wetland share (5 pts),10th pct: 1.34 pts,90th pct: 1.33 pts,-0.006625354523446571,0.13651067567590913,False
+Q3 other preparedness,major,any CRS community (no/yes),no: 1.32 pts,yes: 1.19 pts,-0.1299062622245984,0.11140731587649103,False
+linear probability model,major,Q1 rain +25 mm,,,2.1350919362754595,0.09104064606425383,True
+linear probability model,major,Q2 climate +25 mm,,,-0.2133639014031532,0.04901705462527746,True
+linear probability model,major,Q3 rain x insurance (per 1/100 homes),,,0.03808876816841864,0.05729779886660207,False
+relative storm (per 0.1 of 10-year level),major,Q1 storm effect,,,0.5529179828061227,0.018681248295648708,True
+relative storm (per 0.1 of 10-year level),major,Q2 climate +25 mm,,,0.65775250010354,0.08155572278682062,True
+"expected dollars (PPML), % change",dollars,Q1 rain +25 mm,,,165.3826689261574,21.37627221721539,True
+"expected dollars (PPML), % change",dollars,Q2 climate +25 mm,,,-31.933142005874103,17.208433666775495,False
+"expected dollars (PPML), % change",dollars,Q3 rain x insurance (per 1/100 homes),,,0.8222420714020462,1.8261047593137225,False
+"expected dollars (PPML), % change",dollars,Q4 built-up doubled,,,126.49086880958768,18.27789003595557,True

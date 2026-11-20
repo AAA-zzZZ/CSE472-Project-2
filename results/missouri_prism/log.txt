@@ -1,0 +1,71 @@
+panel: model_panel.csv, state: MO, 115 counties, exposure: log_built_surface, OpenFEMA inputs: False
+train: 2000-2016, 23,460 county-months, 590 damage months (2.51%)
+  fit: 2000-2012, 17,940 county-months, 408 damage months (2.27%)
+  validation: 2013-2016, 5,520 county-months, 182 damage months (3.30%)
+test: 2017-2023, 9,660 county-months, 174 damage months (1.80%)
+
+GLM ridge search on 2013-2016:
+        log loss  MAE, damaged
+ridge                         
+0.1       0.0944        0.7883
+1.0       0.0942        0.7858
+10.0      0.0932        0.7762
+100.0     0.0942        0.7764
+1000.0    0.1139        0.9012
+chosen: part 1 ridge 10.0, part 2 ridge 10.0
+LightGBM trees chosen on 2013-2016: part 1 147, part 2 191
+GLM refit done
+LightGBM refit done (169 and 219 trees)
+
+                                            ROC-AUC  PR-AUC  Brier skill  mean P / rate  AUC within month
+period               model                                                                               
+validation 2013-2016 baseline: county rate    0.633   0.050        0.000          0.690             0.650
+                     GLM hurdle               0.915   0.433        0.259          1.006             0.853
+                     LightGBM hurdle          0.916   0.299        0.181          0.887             0.872
+test 2017-2023       baseline: county rate    0.748   0.066        0.000          1.396             0.641
+                     GLM hurdle               0.895   0.238       -0.089          2.025             0.789
+                     LightGBM hurdle          0.902   0.281        0.068          1.564             0.801
+
+                                            top 5%: share of loss  top 5%: without largest month  top 5%: median month  rank corr, year  MAE, damaged
+period               model                                                                                                                           
+validation 2013-2016 baseline: county rate                  0.022                          0.119                 0.000            0.341         1.001
+                     GLM hurdle                             0.799                          0.474                 0.397            0.369         0.776
+                     LightGBM hurdle                        0.103                          0.469                 0.326            0.441         0.758
+test 2017-2023       baseline: county rate                  0.071                          0.124                 0.000            0.347         0.966
+                     GLM hurdle                             0.702                          0.478                 0.043            0.305         0.781
+                     LightGBM hurdle                        0.685                          0.449                 0.148            0.357         0.761
+
+test ROC-AUC differences, 95% interval from 200 county bootstrap samples:
+  LightGBM  vs GLM       +0.0066  (-0.0091 to +0.0193)
+  LightGBM  vs baseline  +0.1542  (+0.1199 to +0.1980)
+  GLM       vs baseline  +0.1476  (+0.1141 to +0.1872)
+
+GLM coefficients, per 1 std of each input:
+                   part 1 (log-odds of damage)  part 2 (log10 dollars)
+log_p_month                              1.041                   0.252
+rx5_rl_ratio                             0.748                   0.241
+log_snowmelt_mm                         -0.393                  -0.003
+frost_days                               0.342                   0.010
+sm_root_pct                              0.442                   0.206
+log_swe_mm                              -0.026                  -0.195
+c_rx5_rl10_mm                            0.366                   0.074
+log_built_surface                        0.350                   0.219
+impervious_mean                         -0.139                  -0.025
+hand_lt5_share                           0.129                  -0.125
+log_land_km2                             0.145                   0.074
+wetland_share                           -0.328                   0.010
+
+LightGBM part 1, share of total gain:
+p_month              0.269
+rx5_rl_ratio         0.214
+snowmelt_mm          0.076
+sm_root_pct          0.075
+wetland_share        0.066
+c_rx5_rl10_mm        0.051
+log_built_surface    0.049
+impervious_mean      0.044
+month                0.037
+swe_mm               0.036
+hand_lt5_share       0.030
+log_land_km2         0.029
+frost_days           0.025

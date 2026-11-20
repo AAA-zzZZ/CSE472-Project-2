@@ -1,0 +1,13 @@
+state,fitted on,shift,model,method,year
+MO,2017-2018,-1.3273,GLM hurdle,fixed,
+MO,2017-2018,-1.3273,GLM hurdle,rolling,2019.0
+MO,2018-2019,-0.6705,GLM hurdle,rolling,2020.0
+MO,2019-2020,-0.658,GLM hurdle,rolling,2021.0
+MO,2020-2021,-1.3205,GLM hurdle,rolling,2022.0
+MO,2021-2022,-1.2629,GLM hurdle,rolling,2023.0
+MO,2017-2018,-0.6708,LightGBM hurdle,fixed,
+MO,2017-2018,-0.6708,LightGBM hurdle,rolling,2019.0
+MO,2018-2019,-0.4571,LightGBM hurdle,rolling,2020.0
+MO,2019-2020,-0.442,LightGBM hurdle,rolling,2021.0
+MO,2020-2021,-0.9124,LightGBM hurdle,rolling,2022.0
+MO,2021-2022,-0.9227,LightGBM hurdle,rolling,2023.0

@@ -1,0 +1,13 @@
+,model,minor,moderate,major,severe
+minor,GLM: ordinal classes,7,9,9,4
+moderate,GLM: ordinal classes,14,26,25,10
+major,GLM: ordinal classes,4,5,22,9
+severe,GLM: ordinal classes,0,2,9,19
+minor,LightGBM: multiclass,3,15,7,4
+moderate,LightGBM: multiclass,13,35,21,6
+major,LightGBM: multiclass,10,5,10,15
+severe,LightGBM: multiclass,3,2,3,22
+minor,LightGBM: binned dollars,1,17,10,1
+moderate,LightGBM: binned dollars,2,48,24,1
+major,LightGBM: binned dollars,0,16,18,6
+severe,LightGBM: binned dollars,0,5,18,7

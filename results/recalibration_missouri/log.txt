@@ -1,0 +1,28 @@
+MO: models fitted on 2000-2016 (GLM ridge 10/10, LightGBM trees (169, 219))
+scored on 2019-2023: 6,900 county-months, 110 damage months (1.59%)
+
+SCORES 2019-2023 (mean P / rate: 1 = right number of damage months)
+                            mean P / rate  Brier skill  log loss  ROC-AUC  AUC within month  top 5%: without largest month  rank corr, year
+model           correction                                                                                                                 
+GLM hurdle      none                1.982       -0.154     0.077    0.864             0.791                          0.079            0.237
+                fixed               0.695        0.017     0.072    0.864             0.791                          0.079            0.227
+                rolling             0.916       -0.010     0.073    0.849             0.791                          0.079            0.229
+LightGBM hurdle none                1.610       -0.052     0.071    0.870             0.802                          0.078            0.279
+                fixed               0.955        0.052     0.068    0.870             0.802                          0.592            0.278
+                rolling             0.986        0.046     0.069    0.867             0.802                          0.592            0.279
+
+predicted / observed damage months, by year:
+year                     2019  2020  2021  2022  2023
+GLM hurdle      none     1.49  2.14  3.82  1.67  1.86
+                fixed    0.57  0.63  1.43  0.55  0.58
+                rolling  0.57  1.16  2.38  0.55  0.62
+LightGBM hurdle none     1.25  1.79  2.59  1.62  1.51
+                fixed    0.77  1.01  1.50  1.00  0.86
+                rolling  0.77  1.22  1.82  0.83  0.69
+
+fixed log-odds shift per state (negative = predictions lowered; -0.69 halves the odds):
+model  GLM hurdle  LightGBM hurdle
+state                             
+MO          -1.33            -0.67
+
+wrote scores.csv, shifts.csv and log.txt to results/recalibration_missouri

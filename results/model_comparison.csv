@@ -1,0 +1,7 @@
+,ROC-AUC,PR-AUC,Brier skill,mean P / rate,AUC within month,top 5%: share of loss,... without largest month,... median month,"rank corr, year","MAE, damaged"
+baseline: county x month rate,0.7278,0.0659,0.0,1.4022,0.709,0.2112,0.2655,0.0229,0.1126,0.9048
+GLM hurdle (hurdle_model.py),0.8696,0.2105,0.1075,1.5428,0.8386,0.6368,0.7782,0.4364,0.2825,0.8642
+random forest hurdle,0.8889,0.2296,0.1374,1.5872,0.8554,0.6605,0.8171,0.5874,0.263,0.8263
+LightGBM hurdle,0.8956,0.2882,0.1541,1.4789,0.8679,0.6654,0.8261,0.6867,0.3077,0.8092
+LightGBM Tweedie (one part),0.8734,0.1917,,,0.846,0.5884,0.7289,0.5106,0.2943,
+"LightGBM hurdle, known in advance only",0.7644,0.0955,0.0497,1.4688,0.7181,0.3133,0.3924,0.0771,0.1735,0.8766

@@ -1,0 +1,4 @@
+row_0,none,minor,moderate,major,severe
+fit 2000-2012,17532,81,128,123,76
+validation 2013-2016,5338,33,50,56,43
+test 2017-2023,9486,29,75,40,30

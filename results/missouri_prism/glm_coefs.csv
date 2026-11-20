@@ -1,0 +1,13 @@
+,part 1 (log-odds of damage),part 2 (log10 dollars)
+log_p_month,1.041,0.2516
+rx5_rl_ratio,0.7483,0.2413
+log_snowmelt_mm,-0.3931,-0.003
+frost_days,0.3422,0.0104
+sm_root_pct,0.4422,0.206
+log_swe_mm,-0.0258,-0.1952
+c_rx5_rl10_mm,0.3655,0.0739
+log_built_surface,0.3498,0.2193
+impervious_mean,-0.1391,-0.0252
+hand_lt5_share,0.1287,-0.1249
+log_land_km2,0.1447,0.0743
+wetland_share,-0.3284,0.0098

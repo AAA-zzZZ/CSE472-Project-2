@@ -1,0 +1,385 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{float}
+\usepackage{enumitem}
+\usepackage{microtype}
+\usepackage{xurl}
+\usepackage[hidelinks]{hyperref}
+\sloppy
+
+\setlist{itemsep=2pt, topsep=4pt}
+\newcommand{\col}[1]{\texttt{#1}}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+
+\title{Missouri Flood Impact Explorer: App Guide}
+\author{CSE 472 -- Project 2}
+\date{November 8, 2026}
+
+\begin{document}
+\maketitle
+
+\section*{Purpose}
+
+The Missouri Flood Impact Explorer is a Google Earth Engine app. It shows the data behind the flood
+impact model and the model's predictions, for each of Missouri's 115 counties and each month from
+2017 to 2023. The model predicts monthly flood property loss so that counties can be ranked for
+emergency resources. This guide summarizes the model inputs, then explains what the map shows for
+each choice in the app.
+
+%----------------------------------------------------------------
+\section{Summary of the Reduced Inputs}
+
+The model uses \textbf{12 inputs plus calendar month}. Each input stands for one way that flooding
+causes loss. State is also used in the full Midwest model, but it drops out here because every
+county is in Missouri.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{llYl}
+\toprule
+\textbf{Block} & \textbf{Variable} & \textbf{Meaning} & \textbf{Source} \\
+\midrule
+Hazard, & \col{p\_month} & Total rain in the month & PRISM \\
+same month & \col{rx5\_rl\_ratio} & Wettest 5 days $\div$ the county's 10-year 5-day level & PRISM \\
+ & \col{snowmelt\_mm} & Snowmelt in the month & ERA5-Land \\
+ & \col{frost\_days} & Days with minimum temperature below 0\,$^\circ$C & PRISM \\
+\midrule
+Hazard, & \col{sm\_root\_pct} & Soil wetness on day 1, as a percentile against 1950--1999 & ERA5-Land \\
+day 1 & \col{swe\_mm} & Snowpack on day 1 of the month & ERA5-Land \\
+\midrule
+Rain climate & \col{c\_rx5\_rl10\_mm} & 10-year 5-day rain level, from 2000--2009 & PRISM \\
+\midrule
+Exposure and & \col{log\_built\_surface} & Built-up area, natural log, previous year & GHSL \\
+susceptibility & \col{impervious\_mean} & Paved share of the county, previous year & Annual NLCD \\
+ & \col{hand\_lt5\_share} & Share of land less than 5 m above nearest drainage & MERIT Hydro \\
+ & \col{log\_land\_km2} & County land area, natural log & Census TIGER \\
+\midrule
+Adaptation & \col{wetland\_share} & Wetland share of the county, previous year & Annual NLCD \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The model has two parts: one predicts the chance of any damage, and the other predicts how large
+the loss would be if damage occurs. \textbf{Expected loss} is the two multiplied together, and
+counties are ranked by that number.
+
+%----------------------------------------------------------------
+\section{How to Use the App}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{lY}
+\toprule
+\textbf{Control} & \textbf{What it does} \\
+\midrule
+First Layer menu & Picks a group: predictions, county inputs, or a source dataset \\
+Second Layer menu & Picks one layer within that group \\
+Year and Month menus & Pick the month, from January 2017 to December 2023 \\
+Previous and Next & Move one month at a time \\
+Outline checkbox & Draws a cyan outline around the 6 highest-risk counties that month (the top 5\%) \\
+Colour bar & Shows the colour range and units of the current layer \\
+Click on a county & Outlines it in black and opens its details in the side panel \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The app opens on \textbf{Model predictions, Expected loss, April 2017}, Missouri's largest damage
+month in the test years.
+
+\subsection*{Two kinds of map}
+
+\begin{itemize}
+  \item \textbf{County maps} give each county one colour. These are the values the model used,
+        or the model's predictions.
+  \item \textbf{Source maps} show the original gridded data inside Missouri, with county borders
+        on top. Colour can vary within a county.
+\end{itemize}
+
+Values beyond the ends of the colour bar are drawn in the end colour.
+
+%----------------------------------------------------------------
+\section{What the Map Shows for Each Choice}
+
+The last column of each table shows what makes the map change. ``Fixed'' means the map stays the
+same when the date changes.
+
+\subsection{Model predictions}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{lYll}
+\toprule
+\textbf{Layer} & \textbf{What the map shows} & \textbf{Colour range} & \textbf{Changes by} \\
+\midrule
+Expected loss & Predicted dollars of loss in that county and month. Darker red is a higher predicted loss. This is the main heatmap. & \$100 to \$10M, log scale & Month \\
+Chance of any damage & Probability that the county records any flood damage & 0\% to 60\% & Month \\
+Rank within the state & The county's position among all 115. Darkest is rank 1, the highest expected loss. & 1 to 115 & Month \\
+Recorded loss (SHELDUS) & The loss that was actually recorded, for comparison. Blank counties have no record that month. & \$1k to \$100M, log scale & Month \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Model inputs (county values)}
+
+These are the exact values given to the model for that county and month.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.1cm}Yll}
+\toprule
+\textbf{Layer} & \textbf{What the map shows} & \textbf{Colour range} & \textbf{Changes by} \\
+\midrule
+Monthly rain & \col{p\_month}: county-average rain total & 0 to 300 mm & Month \\
+Wettest 5 days / 10-year level & \col{rx5\_rl\_ratio}: how extreme the month's heaviest 5 days were. A value of 1 equals a 10-year event. & 0 to 1.3 & Month \\
+Snowmelt & \col{snowmelt\_mm}: melt during the month & 0 to 35 mm & Month \\
+Frost days & \col{frost\_days}: days with minimum temperature below 0\,$^\circ$C & 0 to 30 days & Month \\
+Soil wetness percentile & \col{sm\_root\_pct}: how wet the soil was on day 1, compared with the same month in 1950--1999 & 0\% to 100\% & Month \\
+Snowpack & \col{swe\_mm}: water held in snow on day 1 & 0 to 15 mm & Month \\
+10-year 5-day rain & \col{c\_rx5\_rl10\_mm}: the county's long-run heavy-rain level & 125 to 210 mm & Fixed \\
+Built-up surface (log) & \col{log\_built\_surface}: amount of built-up area, previous year & 14.5 to 18.6 & Year \\
+Paved share & \col{impervious\_mean}: paved percentage of the county, previous year & 0\% to 25\% & Year \\
+Land under 5 m above drainage & \col{hand\_lt5\_share}: share of the county that sits low near water & 10\% to 100\% & Fixed \\
+County land area (log) & \col{log\_land\_km2}: size of the county & 6.5 to 7.9 & Fixed \\
+Wetland share & \col{wetland\_share}: wetland share of the county, previous year & 0\% to 8.5\% & Year \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Source datasets}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{l>{\raggedright\arraybackslash}p{2.8cm}Yll}
+\toprule
+\textbf{Group} & \textbf{Layer} & \textbf{What the map shows} & \textbf{Colour range} & \textbf{Changes by} \\
+\midrule
+PRISM & Monthly rain & Sum of daily rain & 0 to 300 mm & Month \\
+ & Wettest single day & Largest one-day rain in the month & 0 to 100 mm & Month \\
+ & Frost days & Days with minimum temperature below 0\,$^\circ$C & 0 to 31 days & Month \\
+\midrule
+ERA5-Land & Root-zone soil water & Soil water from 0 to 100 cm on day 1 & 0.15 to 0.45 m$^3$/m$^3$ & Month \\
+ & Snowpack & Snow water on day 1; blank where there is none & 0 to 30 mm & Month \\
+ & Snowmelt & Monthly melt; blank where there is none & 0 to 40 mm & Month \\
+\midrule
+GHSL & Built-up surface & Built area in each 100 m cell; blank where there is none & 0 to 3,000 m$^2$ & Year* \\
+\midrule
+NLCD & Land cover & 16 land-cover classes, listed in the panel & Classes & Year \\
+ & Impervious surface & Paved percentage; blank where there is none & 0\% to 80\% & Year \\
+ & Wetlands & Wetland areas in blue & Yes only & Year \\
+\midrule
+Terrain & Elevation & Height of the land & 70 to 500 m & Fixed \\
+ & Slope & Steepness of the land & 0 to 15$^\circ$ & Fixed \\
+ & Height above drainage & Height above the nearest stream. Darker is closer to stream level. & 0 to 30 m & Fixed \\
+ & Land under 5 m above drainage & Low land near streams in blue & Yes only & Fixed \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\noindent NLCD and GHSL use the previous year's data, so that the inputs are known before the month
+being predicted. *GHSL only has 5-year images: the map shows the 2015 image for 2017--2018 and the
+2020 image for 2019--2023. The county input is interpolated between images, so it can differ.
+
+\subsection*{How a county input relates to its source map}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{YY}
+\toprule
+\textbf{Source map} & \textbf{County input in the model} \\
+\midrule
+PRISM Monthly rain & County average of the same data (\col{p\_month}) \\
+PRISM Frost days & Days calculated from the county-average daily temperature (\col{frost\_days}) \\
+ERA5-Land Root-zone soil water & Converted to a percentile against 1950--1999 (\col{sm\_root\_pct}) \\
+ERA5-Land Snowpack, Snowmelt & County average (\col{swe\_mm}, \col{snowmelt\_mm}) \\
+GHSL Built-up surface & County total, then natural log (\col{log\_built\_surface}) \\
+NLCD Impervious surface & County average (\col{impervious\_mean}) \\
+NLCD Wetlands & County share (\col{wetland\_share}) \\
+Terrain: Land under 5 m above drainage & County share (\col{hand\_lt5\_share}) \\
+\midrule
+PRISM Wettest single day; NLCD Land cover; Terrain Elevation, Slope, Height above drainage &
+Shown for context. These layers are not model inputs themselves. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+%----------------------------------------------------------------
+\section{What Clicking a County Shows}
+
+\begin{itemize}
+  \item \textbf{Prediction:} chance of any damage, expected loss, loss if damage occurs, rank in
+        the state, and recorded loss.
+  \item \textbf{Model inputs:} the 12 values for that month. Built-up surface and land area are
+        converted from logs to km$^2$ so they are easier to read.
+  \item \textbf{County mean:} for most source maps, an extra row gives that map's average over the
+        county. Land cover and the two yes-or-no maps (Wetlands and Land under 5 m) do not have one.
+  \item \textbf{Chart:} every month from 2017 to 2023. The red line is the predicted expected loss
+        and purple dots are recorded losses. The axis is in $\log_{10}$ dollars, so 3 is \$1k and
+        6 is \$1M.
+\end{itemize}
+
+The details update when the month or layer changes.
+
+%----------------------------------------------------------------
+\section{Worked Example: April 2017}
+
+With \textbf{Model predictions, Expected loss, April 2017}, the darkest counties are in southern
+Missouri. The 6 outlined counties are below, and each had recorded damage. Together they hold
+63\% of the state's \$150M recorded loss that month. In all, 35 of the 115 counties recorded damage.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{County} & \textbf{Rank} & \textbf{Chance of damage} & \textbf{Expected loss} & \textbf{Recorded loss} \\
+\midrule
+Barry & 1 & 82\% & \$10.8M & \$1.3M \\
+Taney & 2 & 83\% & \$9.7M & \$12.8M \\
+Greene & 3 & 76\% & \$9.6M & \$0.6M \\
+Phelps & 4 & 90\% & \$8.4M & \$1.3M \\
+Howell & 5 & 87\% & \$8.2M & \$76.9M \\
+Newton & 6 & 78\% & \$8.2M & \$1.3M \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent The model picked the right area, but the dollar amounts differ widely. Howell recorded
+about 9 times its expected loss, and Greene about one-fifteenth of it.
+
+\textbf{To see why,} keep April 2017 and try these combinations:
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{lY}
+\toprule
+\textbf{Choice} & \textbf{What to look for} \\
+\midrule
+Model predictions, Recorded loss & Compare recorded damage with the predicted pattern \\
+Model inputs, Monthly rain & The heaviest county rain; Howell had 430 mm \\
+Model inputs, Wettest 5 days / 10-year level & Values above 1 mean worse than a 10-year event; Howell reached 1.58 \\
+PRISM, Monthly rain & Where within counties the rain fell \\
+Terrain, Land under 5 m above drainage & Where low land near streams sits \\
+GHSL, Built-up surface & Where buildings are concentrated \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+%----------------------------------------------------------------
+\section{Limits to Keep in Mind}
+
+\begin{itemize}
+  \item \textbf{Predictions are computed outside Earth Engine.} LightGBM cannot run in Earth Engine,
+        so the predictions are uploaded as a table and do not change with the map.
+  \item \textbf{They are not true forecasts.} Predictions use the rain that actually fell that
+        month.
+  \item \textbf{Compare counties more than dollar amounts.} Dollar estimates are typically off by
+        several times. Missouri's top 5\% is only 6 counties, so one large month can swing results.
+  \item \textbf{Only 2017--2023 is shown.} The model was fitted on 2000--2016, so these are the
+        years it did not train on.
+  \item \textbf{Blank does not always mean zero loss.} A county with no SHELDUS record may still
+        have had unreported damage.
+  \item \textbf{NFIP flood insurance and buyouts are not included.} That data is still being collected.
+\end{itemize}
+
+%----------------------------------------------------------------
+\section{How the Predictions Are Calculated}
+
+The app does not calculate predictions itself. It looks up a row in \col{mo\_flood\_app\_table.csv},
+which is built ahead of time by \col{build\_app\_table.py} using the LightGBM hurdle model in
+\col{reduced\_benchmark.py}. This section follows one county through that calculation:
+\textbf{Miller County, April 2017}.
+
+\subsection*{The two models}
+
+Both models are trained only on Missouri counties for 2000--2016, so April 2017 is out of sample.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{lYY}
+\toprule
+ & \textbf{Part 1: classifier} & \textbf{Part 2: regressor} \\
+\midrule
+Predicts & Chance of any damage that month, $p$ & $\log_{10}$ of the loss, assuming damage happened, $\mu$ \\
+Trained on & All county-months & Only county-months with damage \\
+Miller County & $p = 0.375$ & Not saved in the table \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\noindent The number of trees is set by early stopping (fit on 2000--2012, validate on 2013--2016),
+then multiplied by 1.15 for the final fit on all of 2000--2016.
+
+\subsection*{Inputs for Miller County, April 2017}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{ll}
+\toprule
+\textbf{Input} & \textbf{Value} \\
+\midrule
+Monthly rain & 250.8 mm \\
+Wettest 5 days / 10-year level & 1.24 (above a 10-year event) \\
+Snowmelt, snowpack, frost days & About 0 \\
+Soil wetness percentile & 72\% \\
+10-year 5-day rain & 142.6 mm \\
+Log built-up surface & 16.02 \\
+Paved share & 1.2\% \\
+Land under 5 m above drainage & 18\% \\
+Log land area & 7.34 \\
+Wetland share & 0.35\% \\
+Calendar month & April \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent Calendar month is a 13th input that the side panel's input list does not show.
+
+\subsection*{How each number in the side panel is produced}
+
+The expected loss combines both models:
+\[
+\text{Expected loss} = p \times 10^{\mu} \times \text{smear}
+\]
+The smear factor is a single correction: the average of $10^{(\text{actual} - \text{predicted})}$
+over the training months with damage. Without it, converting from $\log_{10}$ back to dollars would
+give something closer to a typical loss and understate the average.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.6cm}Yl}
+\toprule
+\textbf{Side panel field} & \textbf{Calculation} & \textbf{Miller County} \\
+\midrule
+Chance of any damage & $p$ from Part 1 & 0.3753, shown as 38\% \\
+Expected loss & $p \times 10^{\mu} \times \text{smear}$ & \$1,377,640, shown as \$1.4M \\
+Loss if damage occurs & Expected loss $\div\ p$, which equals $10^{\mu} \times \text{smear}$ & \$3,670,660, shown as \$3.7M \\
+Rank in the state & Position by expected loss among the 115 counties that month & 40 \\
+Recorded loss (SHELDUS) & Actual inflation-adjusted loss; not a prediction or an input & \$2,563,200, shown as \$2.6M \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection*{Reading these numbers}
+
+\begin{itemize}
+  \item \textbf{Compare \$3.7M to the recorded loss, not \$1.4M.} Damage did occur, so the loss if
+        damage occurs is the like-for-like estimate. Here it is about 1.4 times too high. The
+        \$1.4M is an average that includes the 62\% chance of no damage.
+  \item \textbf{Loss if damage occurs is closer to a mean than a typical value.} The smear factor
+        pulls it toward rare, very large losses, so a typical damaging month would be lower.
+\end{itemize}
+
+\end{document}

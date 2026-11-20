@@ -1,0 +1,218 @@
+--------------------------------------------------------------------------------
+Codebook for NHGIS data file 'nhgis0001_ds195_20095_county'
+--------------------------------------------------------------------------------
+ 
+Contents
+    - Data Summary
+    - Data Dictionary
+    - Citation and Use
+ 
+Additional documentation on NHGIS data sources is available at: 
+    https://www.nhgis.org/documentation/tabular-data 
+ 
+--------------------------------------------------------------------------------
+Data Summary
+--------------------------------------------------------------------------------
+ 
+Year:             2005-2009
+Geographic level: County (by State)
+Extent:           All areas
+Dataset:          2009 American Community Survey: 5-Year Data [2005-2009, Block Groups & Larger Areas]
+   NHGIS code:    2005_2009_ACS5a
+   NHGIS ID:      ds195
+Breakdown(s):     Geographic Component:
+                     Total area (00)
+Data type(s):     (E) Estimates
+                  (M) Margins of error
+ 
+Tables:
+ 
+1. Units in Structure
+   Universe:    Housing units
+   Source code: B25024
+   NHGIS code:  RQZ
+ 
+2. Year Structure Built
+   Universe:    Housing units
+   Source code: B25034
+   NHGIS code:  RQ2
+ 
+3. Median Value (Dollars)
+   Universe:    Owner-occupied housing units
+   Source code: B25077
+   NHGIS code:  RR7
+ 
+--------------------------------------------------------------------------------
+Data Dictionary
+--------------------------------------------------------------------------------
+ 
+Context Fields 
+        GISJOIN:     GIS Join Match Code
+        YEAR:        Data File Year
+        STUSAB:      State Postal Abbreviation
+        REGIONA:     Region Code
+        DIVISIONA:   Division Code
+        STATE:       State Name
+        STATEA:      State Code
+        COUNTY:      County Name
+        COUNTYA:     County Code
+        COUSUBA:     County Subdivision Code
+        PLACEA:      Place Code
+        TRACTA:      Census Tract Code
+        BLKGRPA:     Block Group Code
+        CONCITA:     Consolidated City Code
+        AIANHHA:     American Indian Area/Alaska Native Area/Hawaiian Home Land Code
+        RES_ONLYA:   American Indian Area/Alaska Native Area (Reservation or Statistical Entity Only) Code
+        TRUSTA:      American Indian Area (Off-Reservation Trust Land Only)/Hawaiian Home Land Code
+        AIHHTLI:     American Indian Trust Land/ Hawaiian Home Land Indicator
+        AITSCEA:     Tribal Subdivision/Remainder Code
+        ANRCA:       Alaska Native Regional Corporation Code
+        CBSAA:       Metropolitan Statistical Area/Micropolitan Statistical Area Code
+        CSAA:        Combined Statistical Area Code
+        METDIVA:     Metropolitan Division Code
+        NECTAA:      New England City and Town Area Code
+        CNECTAA:     Combined New England City and Town Area Code
+        NECTADIVA:   New England City and Town Area Division Code
+        UAA:         Urban Area Code
+        CDCURRA:     Congressional District (2007-2013, 110th-112th Congress) Code
+        SLDUA:       State Legislative District (Upper Chamber) Code
+        SLDLA:       State Legislative District (Lower Chamber) Code
+        SUBMCDA:     Subminor Civil Division Code
+        SDELMA:      School District (Elementary)/Remainder Code
+        SDSECA:      School District (Secondary)/Remainder Code
+        SDUNIA:      School District (Unified)/Remainder Code
+        PCI:         Principal City Indicator
+        PUMAA:       Public Use Microdata Area Code
+        GEOID:       Geographic Identifier
+ 
+Data Type (E):
+    Estimates
+ 
+        NAME_E:      Area Name
+ 
+    Table 1:     Units in Structure
+    Universe:    Housing units
+    Source code: B25024
+    NHGIS code:  RQZ
+        RQZE001:     Total
+        RQZE002:     1, detached
+        RQZE003:     1, attached
+        RQZE004:     2
+        RQZE005:     3 or 4
+        RQZE006:     5 to 9
+        RQZE007:     10 to 19
+        RQZE008:     20 to 49
+        RQZE009:     50 or more
+        RQZE010:     Mobile home
+        RQZE011:     Boat, RV, van, etc.
+ 
+    Table 2:     Year Structure Built
+    Universe:    Housing units
+    Source code: B25034
+    NHGIS code:  RQ2
+        RQ2E001:     Total
+        RQ2E002:     Built 2005 or later
+        RQ2E003:     Built 2000 to 2004
+        RQ2E004:     Built 1990 to 1999
+        RQ2E005:     Built 1980 to 1989
+        RQ2E006:     Built 1970 to 1979
+        RQ2E007:     Built 1960 to 1969
+        RQ2E008:     Built 1950 to 1959
+        RQ2E009:     Built 1940 to 1949
+        RQ2E010:     Built 1939 or earlier
+ 
+    Table 3:     Median Value (Dollars)
+    Universe:    Owner-occupied housing units
+    Source code: B25077
+    NHGIS code:  RR7
+        RR7E001:     Median value (dollars)
+ 
+Data Type (M):
+    Margins of error
+ 
+        NAME_M:      Area Name
+ 
+    Table 1:     Units in Structure
+    Universe:    Housing units
+    Source code: B25024
+    NHGIS code:  RQZ
+        RQZM001:     Total
+        RQZM002:     1, detached
+        RQZM003:     1, attached
+        RQZM004:     2
+        RQZM005:     3 or 4
+        RQZM006:     5 to 9
+        RQZM007:     10 to 19
+        RQZM008:     20 to 49
+        RQZM009:     50 or more
+        RQZM010:     Mobile home
+        RQZM011:     Boat, RV, van, etc.
+ 
+    Table 2:     Year Structure Built
+    Universe:    Housing units
+    Source code: B25034
+    NHGIS code:  RQ2
+        RQ2M001:     Total
+        RQ2M002:     Built 2005 or later
+        RQ2M003:     Built 2000 to 2004
+        RQ2M004:     Built 1990 to 1999
+        RQ2M005:     Built 1980 to 1989
+        RQ2M006:     Built 1970 to 1979
+        RQ2M007:     Built 1960 to 1969
+        RQ2M008:     Built 1950 to 1959
+        RQ2M009:     Built 1940 to 1949
+        RQ2M010:     Built 1939 or earlier
+ 
+    Table 3:     Median Value (Dollars)
+    Universe:    Owner-occupied housing units
+    Source code: B25077
+    NHGIS code:  RR7
+        RR7M001:     Median value (dollars)
+ 
+--------------------------------------------------------------------------------
+Citation and Use of NHGIS Data
+--------------------------------------------------------------------------------
+ 
+All persons are granted a limited license to use this documentation and the
+accompanying data, subject to the following conditions:
+
+* REDISTRIBUTION: You will not redistribute the data without permission.
+
+  You may publish a subset of the data to meet journal requirements for accessing 
+  data related to a particular publication. Contact us for permission for any other 
+  redistribution; we will consider requests for free and commercial redistribution.
+
+* CITATION: You will cite NHGIS appropriately.
+
+    * Publications and research reports employing NHGIS data (either tabular or GIS) 
+      should include the following citation:
+
+        Jonathan Schroeder, David Van Riper, Steven Manson, Grace Cooper, Zachary Krause, Tracy Kugler, Tsu Zhu, and Steven Ruggles. 
+        IPUMS National Historical Geographic Information System: Version 21.0 
+        [dataset]. Minneapolis, MN: IPUMS. 2026. 
+        http://doi.org/10.18128/D050.V21.0
+
+    * For policy briefs, online resources, or articles in the popular press, we 
+      recommend that you cite the use of NHGIS data as follows:
+
+        IPUMS NHGIS, University of Minnesota, www.nhgis.org.
+
+These terms of use are a legally binding agreement. You can use the data only in 
+accordance with these terms, and any other use is a violation of the agreement. 
+Violations may result in revocation of the agreement and prohibition from using other 
+IPUMS data. If IPUMS or our partners are harmed from your violation, you are 
+responsible for all damages, including reasonable attorney's fees and expenses.
+        
+In addition, we request that users send us a copy of any publications, research
+reports, or educational material making use of the data or documentation.
+
+Send electronic material to: nhgis@umn.edu
+
+Printed matter should be sent to:
+
+    IPUMS NHGIS
+    Institute for Social Research and Data Innovation
+    University of Minnesota
+    50 Willey Hall
+    225 19th Ave S
+    Minneapolis, MN 55455

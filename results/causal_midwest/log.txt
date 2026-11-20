@@ -1,0 +1,61 @@
+causal_model.py --out-dir results/causal_midwest
+county-months 2011-2023: 164,580; dropped 0 with a missing input
+rows 164,580, counties 1055; any damage 2.85%, loss $100k+ 1.05%
+insurance per 100 homes: mean 0.84, 10th pct 0.05, 90th pct 1.82
+means: {'rx5': 41.36, 'c_rx5_rl10_mm': 125.22, 'built': 2.93, 'history': 0.44}
+
+===== outcome: any damage
+Q3 coefficient rain:ins = -0.0092 (SE 0.0091)
+
+===== outcome: loss of $100k+
+Q3 coefficient rain:ins = -0.0159 (SE 0.0115)
+
+mean loss per county-month $61,800
+
+effects: average change in probability, percentage points [95% interval]; * clear
+question outcome                                       effect           effect (pts)  base_pct
+      Q1     any                     rain +25 mm, no controls +2.65 [+2.45, +2.85] *     2.855
+      Q1     any                      rain +25 mm, controlled +2.89 [+2.72, +3.07] *     2.855
+      Q2     any                   climate +25 mm (same rain) +0.40 [+0.10, +0.69] *     2.855
+      Q3     any  rain +25 mm, low insurance (0.05/100 homes) +2.75 [+2.59, +2.90] *     2.855
+      Q3     any rain +25 mm, high insurance (1.82/100 homes) +2.98 [+2.81, +3.15] *     2.855
+      Q3     any         difference, high minus low insurance +0.24 [+0.07, +0.40] *     2.855
+      Q3     any  insurance +1 per 100 homes (reference only) +0.19 [+0.11, +0.27] *     2.855
+      Q3     any        flood history +1 damaged month a year +4.10 [+3.67, +4.54] *     2.855
+      Q4     any                        built-up area doubled +0.49 [+0.31, +0.66] *     2.855
+      Q1   major                     rain +25 mm, no controls +1.05 [+0.96, +1.15] *     1.055
+      Q1   major                      rain +25 mm, controlled +1.31 [+1.21, +1.40] *     1.055
+      Q2   major                   climate +25 mm (same rain)   -0.10 [-0.20, +0.01]     1.055
+      Q3   major  rain +25 mm, low insurance (0.05/100 homes) +1.29 [+1.19, +1.39] *     1.055
+      Q3   major rain +25 mm, high insurance (1.82/100 homes) +1.30 [+1.20, +1.40] *     1.055
+      Q3   major         difference, high minus low insurance   +0.01 [-0.10, +0.12]     1.055
+      Q3   major  insurance +1 per 100 homes (reference only)   +0.02 [-0.02, +0.07]     1.055
+      Q3   major        flood history +1 damaged month a year +0.86 [+0.63, +1.10] *     1.055
+      Q4   major                        built-up area doubled +0.31 [+0.23, +0.39] *     1.055
+
+checks:
+                                    check outcome                               measure                low               high  diff_pts  se_pts  clear
+                    Q3 other preparedness     any                  median income ($10k) 10th pct: 3.05 pts 90th pct: 2.73 pts    -0.322   0.164   True
+                    Q3 other preparedness     any            homes before 1980 (10 pts) 10th pct: 2.71 pts 90th pct: 3.04 pts     0.328   0.177  False
+                    Q3 other preparedness     any                 wetland share (5 pts) 10th pct: 2.91 pts 90th pct: 2.89 pts    -0.025   0.190  False
+                    Q3 other preparedness     any            any CRS community (no/yes)       no: 2.80 pts      yes: 3.18 pts     0.378   0.191   True
+                 linear probability model     any                        Q1 rain +25 mm                NaN                NaN     4.159   0.131   True
+                 linear probability model     any                     Q2 climate +25 mm                NaN                NaN     0.120   0.119  False
+                 linear probability model     any Q3 rain x insurance (per 1/100 homes)                NaN                NaN     0.237   0.102   True
+relative storm (per 0.1 of 10-year level)     any                       Q1 storm effect                NaN                NaN     1.287   0.038   True
+relative storm (per 0.1 of 10-year level)     any                     Q2 climate +25 mm                NaN                NaN     2.029   0.191   True
+                    Q3 other preparedness   major                  median income ($10k) 10th pct: 1.45 pts 90th pct: 1.18 pts    -0.271   0.097   True
+                    Q3 other preparedness   major            homes before 1980 (10 pts) 10th pct: 1.13 pts 90th pct: 1.46 pts     0.331   0.119   True
+                    Q3 other preparedness   major                 wetland share (5 pts) 10th pct: 1.34 pts 90th pct: 1.33 pts    -0.007   0.137  False
+                    Q3 other preparedness   major            any CRS community (no/yes)       no: 1.32 pts      yes: 1.19 pts    -0.130   0.111  False
+                 linear probability model   major                        Q1 rain +25 mm                NaN                NaN     2.135   0.091   True
+                 linear probability model   major                     Q2 climate +25 mm                NaN                NaN    -0.213   0.049   True
+                 linear probability model   major Q3 rain x insurance (per 1/100 homes)                NaN                NaN     0.038   0.057  False
+relative storm (per 0.1 of 10-year level)   major                       Q1 storm effect                NaN                NaN     0.553   0.019   True
+relative storm (per 0.1 of 10-year level)   major                     Q2 climate +25 mm                NaN                NaN     0.658   0.082   True
+        expected dollars (PPML), % change dollars                        Q1 rain +25 mm                NaN                NaN   165.383  21.376   True
+        expected dollars (PPML), % change dollars                     Q2 climate +25 mm                NaN                NaN   -31.933  17.208  False
+        expected dollars (PPML), % change dollars Q3 rain x insurance (per 1/100 homes)                NaN                NaN     0.822   1.826  False
+        expected dollars (PPML), % change dollars                   Q4 built-up doubled                NaN                NaN   126.491  18.278   True
+
+results in results/causal_midwest
