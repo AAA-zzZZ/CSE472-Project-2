@@ -1,12 +1,13 @@
 # Files Used to Build and Feed the Models
 
-This lists every script and data folder that creates the flood-loss models or supplies data to
-them, in pipeline order. Each entry gives its path from the repository root, what it does, what
-is inside, and for data, where it came from and how and why it was changed.
+This lists every script and data folder that creates the flood-loss models in the write-up
+(`push_to_main/Writeup.tex`) or supplies data to them, in pipeline order. Each entry gives its
+path from the repository root, what it does, what is inside, and for data, where it came from
+and how and why it was changed.
 
-Traced on 2026-11-14 on branch `enci-dev` and updated 2026-11-20 (causal models, ordered-logit
-adjustment runs, app version 3). It replaces `cleaned_items/used_files.md` (2026-11-08), which
-does not include the loss-class model, the adjustment and causal models or the apps.
+The `main` branch holds only this pipeline, the Earth Engine apps (`gee_app/`) and the papers
+cited in the write-up (`Literature/`). Earlier designs, working notes and exploratory scripts are
+on the `enci-dev` branch.
 
 **The models in one line:** a two-part (hurdle) model for each county and month in 12 Midwest
 states (1,055 counties, 2000–2023). Part 1 gives the chance of any flood property damage; part 2
@@ -32,7 +33,7 @@ OpenFEMA       ─► openfema_features.py ────────────�
                                    merge_panel.py ─► model_panel.csv
                                                            │
      reduced_benchmark.py, loss_class_model.py, recalibrate.py   (forecast)
-     causal_model.py, adjustment_models.py                      (explanation)
+     causal_model.py                                            (explanation)
                                                            │
                        build_midwest_app_table.py ─► Earth Engine explorer app
 ```
@@ -50,8 +51,7 @@ months per year over the previous 10 years) as a control; see section 7.
   damage, in nominal dollars and adjusted to 2024 dollars, plus per-capita values, durations and
   record counts.
 - **Source:** SHELDUS (Spatial Hazard Events and Losses Database for the United States, Arizona
-  State University), hazard **Flooding**, 12 Midwest states, 1960–2024. See
-  `SHELDUS_Data_Documentation.pdf`.
+  State University), hazard **Flooding**, 12 Midwest states, 1960–2024.
 - **Changed:** no, raw input.
 
 ### `loss_output_year_county.csv`
@@ -124,15 +124,6 @@ months per year over the previous 10 years) as a control; see section 7.
     is tested on. 2000–2009 is the earliest PRISM decade in the export.
   - Multi-day windows count in the month they end, as in the ETCCDI convention.
 
-### NOAA cross-check (not used by the current models)
-- `prep_nclimgrid.py` → `data/nclimgrid_midwest/`: NOAA nClimGrid-Daily county rain and Tmin,
-  1951–2023 (from `s3://noaa-nclimgrid-daily-pds/`), cut down to the Midwest.
-- `out/w_county_month.csv` (ignored), `out/w_county_thresholds.csv`: the same indices on NOAA,
-  with a 1951–1999 baseline.
-- `model_panel_noaa.csv`, `panel_county_month_noaa.csv` (ignored): frozen NOAA panels.
-- **Why kept:** the project first used NOAA, then switched to PRISM. NOAA is kept only to
-  check the PRISM results.
-
 ---
 
 ## 3. Soil, snow, land cover and terrain (Earth Engine)
@@ -174,7 +165,7 @@ county.
 
 ## 4. Built-up surface (GHSL)
 
-### `yana_workspace/ghsl_export.py` → `data/gee_ghsl/`
+### `ghsl_export.py` → `data/gee_ghsl/`
 - **What:** 7 files (1995, 2000, …, 2025). Holds total built-up area per county (`built_m2`).
 - **Source:** JRC Global Human Settlement Layer, `JRC/GHSL/P2023A/GHS_BUILT_S`, 100 m, through
   Earth Engine.
@@ -203,7 +194,7 @@ county.
   - Variable codes differ between releases, so columns are found by table code from each
     codebook.
 - **Use:** housing units (the denominator of insurance per home), income and pre-1980 share
-  feed the causal and adjustment models and the app. They are not inputs to the forecast models.
+  feed the causal models and the app. They are not inputs to the forecast models.
 
 ### `openfema_features.py` → `data/clean/nfip_policies_county_year.csv`, `crs_county_year.csv`, `hma_county_year.csv`
 - **What:** per county and year 1999–2022:
@@ -218,8 +209,8 @@ county.
   - Years before 2010 are left **empty, not zero**: the records start in 2009, and an unknown
     year is not a year with no policies.
   - **Policies only, never claims:** claims come from the losses being predicted.
-- **Use:** causal and adjustment models and the app. Buyouts were tested as a forecast input
-  (`results/*_buyouts/`) and added nothing.
+- **Use:** causal models and the app. Buyouts were tested as a forecast input and added
+  nothing, so they are not used.
 
 ---
 
@@ -261,7 +252,7 @@ skewed amounts.
 
 ## 7. Models
 
-### `reduced_benchmark.py` → `results/midwest_prism/`, `results/missouri_prism/`, `results/missouri_pooled/`, `results/*_prism_buyouts/`
+### `reduced_benchmark.py` → `results/midwest_prism/`, `results/missouri_prism/`, `results/missouri_pooled/`
 - **What:** the main forecast models on the 12 inputs: a GLM hurdle (ridge logistic + ridge
   linear) and a LightGBM hurdle, against a county-rate baseline. Part 2 here predicts log10
   dollars.
@@ -274,17 +265,16 @@ skewed amounts.
 - **What:** part 2 as **loss classes** instead of dollars (current design). It uses an ordinal
   logistic GLM and a LightGBM multiclass model, and also scores binned dollars and a baseline.
   Counties are ranked by the chance of a $1M+ loss.
-- **Why classes:** see `Project 2/Summary Guides/loss_classes_summary.pdf`. Each class is one
-  power of ten, which matches the model's precision (the dollar model was typically off about
+- **Why classes:** each class is one power of ten, which matches the model's precision (the dollar model was typically off about
   7×).
 - **Output:** `scores.csv`, `confusion_test.csv`, `glm_ordinal_coefs.csv`, `class_counts.csv`,
   `ranking_options.csv`, `log.txt`.
 
-### `causal_model.py` → `results/causal_nested_midwest/`, `results/causal_midwest/`
-- **What:** the causal models in the report (Section 3.5). They estimate the **storm effect**,
-  how much more rain raises a county's chance of flood damage, and test whether accounting for
-  rain climate and preparedness changes it. This is for explanation, not forecasting. It
-  replaced `adjustment_models.py` after the instructor asked for interpretable variables.
+### `causal_model.py --design nested` → `results/causal_nested_midwest/`
+- **What:** the causal models in the report (Sections 3.5 and 4.4). They estimate the **storm
+  effect**, how much more rain raises a county's chance of flood damage, and test whether
+  accounting for rain climate and preparedness changes it. This is for explanation, not
+  forecasting.
 - **Rows:** every county-month in 2011–2023 (the years with flood-insurance data), all 12
   states, including months with no damage. Read from `model_panel.csv`.
 - **Outcomes:** any damage, and a loss of $100k or more (2024 dollars). Logistic regressions with
@@ -294,41 +284,26 @@ skewed amounts.
   homes, median income, share of homes built before 1980, wetland share and whether any community
   is in the CRS. Background controls: soil wetness, snowpack, frost days, low-lying land,
   calendar month and state.
-- **`--design nested` → `results/causal_nested_midwest/` (current):** five nested models M0–M4
-  (M0 rain + built-up + background; M1 + climate; M2 + preparedness; M3 + both; M4 + rain ×
-  each preparedness measure). Effects are reported as average changes in the chance of damage
-  (for example, 25 mm more rain). Checks: a linear probability model, storm size relative to the
-  10-year level, and flood history (from SHELDUS, previous 10 years) added to M2–M4.
-- **Default design → `results/causal_midwest/`:** an earlier version that answers four separate
-  questions (rain, climate, insurance, built-up area), each with its own controls.
-- **Output:** `effects.csv`, `checks.csv`, `coefs.csv`, `log.txt`, and the plots
-  `plot_rain_insurance.png` (both designs) and `plot_rain_effect_models.png` (nested).
-
-### `adjustment_models.py` → `results/adjustment_midwest/`, `results/adjustment_missouri/`, `results/adjustment_classes_midwest/`, `results/adjustment_classes_missouri/`
-- **What:** the earlier version of the causal analysis, replaced by `causal_model.py`. Five
-  nested regressions (M0–M4) on storm size, testing whether adjusting for rain climate and
-  adaptation (insurance, CRS, income, pre-1980 housing, wetlands) changes the storm effect.
-  - Default (`--outcome dollars`) → `adjustment_*`: OLS on log10 loss, damage months only.
-  - `--outcome classes` → `adjustment_classes_*`: ordered logit on the loss class of every storm
-    month, damaged or not; `--po-check` adds the proportional-odds check (`po_check.csv`).
-- **Output:** coefficients, summary, correlations, sample, log and three plots; the class runs
-  also write `comparison.csv` and `po_check.csv`.
+- **Design:** five nested models M0–M4 (M0 rain + built-up + background; M1 + climate; M2 +
+  preparedness; M3 + both; M4 + rain × each preparedness measure). Effects are reported as
+  average changes in the chance of damage (for example, 25 mm more rain). Checks: a linear
+  probability model, storm size relative to the 10-year level, and flood history (from SHELDUS,
+  previous 10 years) added to M2–M4.
+- **Run:** `python causal_model.py --design nested --out-dir results/causal_nested_midwest`
+- **Output:** `effects.csv`, `checks.csv`, `coefs.csv`, `log.txt`, `plot_rain_insurance.png`
+  and `plot_rain_effect_models.png`.
 
 ### `recalibrate.py` → `results/recalibration_midwest/`, `results/recalibration_missouri/`
 - **What:** per-state shifts so the predicted number of damage months matches recent years,
   because fewer damage months were reported after 2016. It fixes the levels, not the ranking.
 
-### Earlier models (kept for comparison; not the current design)
-- `hurdle_model.py` → `results/hurdle_scores.csv`: 17-input GLM hurdle, built one block at a
-  time.
-- `model_comparison.py` → `results/model_comparison.csv`: GLM, random forest, LightGBM and
-  Tweedie on 39 inputs. This is where LightGBM was chosen.
-
 ---
 
 ## 8. Using the models: Earth Engine explorer apps
 
-### `yana_workspace/gee_app/Midwest/`
+All app files are in `gee_app/` at the repository root. Run the build scripts from the root.
+
+### `gee_app/Midwest/`
 - `build_midwest_app_table.py` → `midwest_flood_app_table.csv`: refits part 1
   (`reduced_benchmark.py`) and the class model (`loss_class_model.py`) on 12 states and predicts
   2017–2023. It stops unless the scores match the saved results. Output: 88,620 rows ×
@@ -339,31 +314,17 @@ skewed amounts.
   an option to overlay one on the other) and "Model inputs" (all county input layers).
 - `flood_explorer_app2.js`: the previous version, reading the same asset.
 
-### `yana_workspace/gee_app/missouri_tester/`
+### `gee_app/missouri_tester/`
 - `build_app_table.py` → `mo_flood_app_table.csv`, `flood_explorer_app.js`: the Missouri app
   (dollar predictions; unchanged). Its `add_adaptation()` is reused by the Midwest builder.
-- `midwest_flood_impact/flood_explorer.js` is the same app with another asset ID.
+- `flood_explorer_app_guide.tex` / `.pdf`: user guide for the Missouri app.
+
+### Other apps in `gee_app/`
+- `midwest_flood_impact/flood_explorer.js`: the Missouri app with another asset ID.
+- `gee_exposure_app.js`: an earlier app that maps the model inputs (display only).
 
 ---
 
-## 9. Reference documents
+## 9. Literature
 
-| Path | What |
-|---|---|
-| `HANDOFF.md`, `yana_workspace/HANDOFF2.md`–`HANDOFF4.md` | Session-by-session history and decisions |
-| `docs/flood_variable_reference.xlsx` | Variable reference |
-| `docs/literature_review/`, `docs/model_selection/` | Literature and model-choice notes |
-| `docs/adjustment_results_explained.pdf` | Plain-language guide to the adjustment results (`adjustment_models.py`) |
-| `SHELDUS_Data_Documentation.pdf` | SHELDUS definitions |
-| `Data_Collection_and_Panel_Dataset (1).docx` | Data-collection guide |
-| `maps.py` → `maps/` | County maps to check inputs (display only); uses `data/counties_midwest.geojson` |
-
-## Not used by the current models
-
-| Path | Why |
-|---|---|
-| `yana_workspace/build_county_panel.py`, `neighbour_model.py`, `prism_county_export.py`, `ghsl_county_export.py`, `yana_workspace/data/`, `yana_workspace/results/` | Earlier 5-county Ohio design and the dropped spatial model |
-| `data/gee_prism39167/`, `data/gee_ghsl39167/`, `out/prism_39167/` | Single-county test exports |
-| `yana_workspace/reduced_variables.md` | Out of date (describes NOAA and housing units) |
-| `yana_workspace/gee_exposure_app.js`, `yana_workspace/flood_model_variable_tree.*` | Display and diagram only |
-| `cleaned_items/used_files.md` | Older version of this list |
+`Literature/` holds the papers cited in the write-up's Related Works section.

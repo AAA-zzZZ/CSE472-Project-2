@@ -6,7 +6,7 @@ import pandas as pd
 
 # built-up surface (x): total built-up area in each county from GHSL
 # (JRC/GHSL/P2023A/GHS_BUILT_S, 100 m, images every 5 years 1995-2025), exported by
-# yana_workspace/ghsl_export.py. the 5-year images are interpolated linearly to every
+# ghsl_export.py. the 5-year images are interpolated linearly to every
 # year; merge_panel.py joins year t - 1 to model year t.
 # output: data/clean/ghsl_county_year.csv with GEOID, year, built_m2
 GHSL_DIR = 'data/gee_ghsl'

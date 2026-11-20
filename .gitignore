@@ -234,4 +234,4 @@ out/prism_midwest/w_county_month.csv
 data/openfema/raw/
 
 # GEE clone of midwest_flood_impact (renamed so files commit normally)
-midwest_flood_impact/.git_gee/
+gee_app/midwest_flood_impact/.git_gee/
