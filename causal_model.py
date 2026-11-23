@@ -1,7 +1,7 @@
 """
 Causal model (report Section 3.5): the effect of each factor in the causal diagram on the chance
-of flood damage, in interpretable units. Replaces the ordered-logit adjustment models of
-adjustment_models.py after the instructor's feedback: variables must be interpretable (no
+of flood damage, in interpretable units. Replaces the earlier ordered-logit adjustment models
+(on the enci-dev branch) after the instructor's feedback: variables must be interpretable (no
 derived ratios, no log-loss outcome), and each effect needs its own controls.
 
 Rows     : every county-month in 2011-2023 (the years with flood-insurance data), all 12 states,

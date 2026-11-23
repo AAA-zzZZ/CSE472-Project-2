@@ -312,16 +312,14 @@ All app files are in `gee_app/` at the repository root. Run the build scripts fr
   above, uploaded as an Earth Engine asset (`midwest_flood_app_table`). A simpler layer menu with
   two groups: "Model predictions" (chance of any damage and the recorded SHELDUS loss class, with
   an option to overlay one on the other) and "Model inputs" (all county input layers).
-- `flood_explorer_app2.js`: the previous version, reading the same asset.
 
 ### `gee_app/missouri_tester/`
 - `build_app_table.py` → `mo_flood_app_table.csv`, `flood_explorer_app.js`: the Missouri app
   (dollar predictions; unchanged). Its `add_adaptation()` is reused by the Midwest builder.
 - `flood_explorer_app_guide.tex` / `.pdf`: user guide for the Missouri app.
 
-### Other apps in `gee_app/`
-- `midwest_flood_impact/flood_explorer.js`: the Missouri app with another asset ID.
-- `gee_exposure_app.js`: an earlier app that maps the model inputs (display only).
+Earlier app versions (the Midwest version 2 and an input-only exposure app) are on the `enci-dev`
+branch.
 
 ---
 

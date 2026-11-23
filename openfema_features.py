@@ -51,7 +51,7 @@ STATES = {"17": "IL", "18": "IN", "19": "IA", "20": "KS", "26": "MI", "27": "MN"
           "29": "MO", "31": "NE", "38": "ND", "39": "OH", "46": "SD", "55": "WI"}
 START, END = 1999, 2022           # model years 2000-2023 read year - 1
 NFIP_FIRST_YEAR = 2010            # first July 1 with complete policy terms
-# old South Dakota code (see HANDOFF.md)
+# old South Dakota code: 46113 Shannon became 46102 Oglala Lakota (as in data_clean.py)
 OLD_CODES = {"46113": "46102"}
 
 FILES = {

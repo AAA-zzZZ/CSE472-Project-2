@@ -8,7 +8,7 @@ Models: GLM and LightGBM hurdle from reduced_benchmark.py, fitted on 2000-2016 e
 
 Corrections, all scored on 2019-2023 only:
   none      the 2000-2016 model as it is
-  fixed     one log-odds shift per state, fitted on 2017-2018 (the plan in HANDOFF.md)
+  fixed     one log-odds shift per state, fitted on 2017-2018
   rolling   each year's shift fitted on the two years before it (2019 uses 2017-2018, 2020 uses
             2018-2019, ...): only past years, the way it would run each year in practice
 The shift moves a state's probabilities up or down together, so it cannot change the ranking within

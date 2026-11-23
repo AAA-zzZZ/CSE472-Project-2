@@ -1,0 +1,12 @@
+# Python packages for the pipeline, models and app-table builders (run from the repository root)
+pandas
+numpy
+scipy
+scikit-learn
+lightgbm
+statsmodels
+patsy
+matplotlib
+pyarrow
+# only for the Earth Engine exports (prism_export.py, ghsl_export.py)
+earthengine-api

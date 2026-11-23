@@ -24,7 +24,6 @@ Output:
 
 Usage:
     python merge_panel.py               # PRISM panel with every data/clean/ table, model_panel.csv
-    python merge_panel.py --thresholds out/w_county_thresholds.csv --out model_panel_noaa.csv
 
 Leakage rules:
   * SHELDUS supplies only the outcome columns; nothing derived from losses is an input.

@@ -3,7 +3,7 @@
 // Explore the model's predictions and its county input values for the 12 Midwest states. Paste into
 // the Earth Engine Code Editor (https://code.earthengine.google.com) and press Run.
 //
-// Version 3 (from flood_explorer_app2.js): the layer menu has two groups only. "Model predictions"
+// Version 3 (version 2 is on the enci-dev branch): the layer menu has two groups only. "Model predictions"
 // holds the chance of any damage and the recorded SHELDUS loss class; a box on the map overlays the
 // chance of damage on the recorded loss class. "Model inputs" keeps all of its county layers.
 //

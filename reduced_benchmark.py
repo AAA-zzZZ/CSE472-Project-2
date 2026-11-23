@@ -33,7 +33,6 @@ Usage:
     python reduced_benchmark.py --out-dir results/midwest_prism
     python reduced_benchmark.py --state MO --out-dir results/missouri_prism
     python reduced_benchmark.py --score-state MO --out-dir results/missouri_pooled
-    python reduced_benchmark.py --panel model_panel_noaa.csv --exposure log_housing_units --out-dir <folder>
 """
 
 import argparse
@@ -116,7 +115,7 @@ def load(path, openfema_inputs, state, exposure):
 
 
 # ---------------------------------------------------------------
-# models (same formulas as hurdle_model.py and model_comparison.py)
+# models: GLM hurdle (ridge logistic + ridge linear) and LightGBM hurdle
 # ---------------------------------------------------------------
 def design(df, ref, inputs):
     X = (df[inputs] - ref[inputs].mean()) / ref[inputs].std()
@@ -189,7 +188,7 @@ def lgb_hurdle(fit_df, score_df, inputs, rounds=None, valid_df=None):
 
 
 # ---------------------------------------------------------------
-# scores (same definitions as hurdle_model.py)
+# scores
 # ---------------------------------------------------------------
 def auc(y, s):
     r = pd.Series(s).rank().to_numpy()
@@ -304,7 +303,7 @@ def main():
     p_g, mu, e, b1, b2 = glm_hurdle(train, test, glm_inputs, ridge1, ridge2)
     table[("test 2017-2023", "GLM hurdle")] = scores(test, p_g, mu, e, brier)
     print("GLM refit done")
-    # 15% more trees because the refit has more data, as in model_comparison.py
+    # 15% more trees because the refit has more data
     final_rounds = (int(rounds[0] * 1.15), int(rounds[1] * 1.15))
     p_l, mu, e, _, clf = lgb_hurdle(train, test, tree_inputs, rounds=final_rounds)
     table[("test 2017-2023", "LightGBM hurdle")] = scores(test, p_l, mu, e, brier)

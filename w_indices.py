@@ -2,18 +2,17 @@
 Step 2b: Compute county x month hazard (W) indices from county-daily rainfall and Tmin.
 
 Input : folder of yearly county-daily files (.csv or .csv.gz) with columns GEOID, date, ppt, tmin.
-        Made by prep_nclimgrid.py from NOAA nClimGrid-Daily (1951-2023).
-        The older PRISM exports (prism_county_daily_YYYY.csv) also work; use --base-start 1981.
+        Made by prism_export.py prism (PRISM daily, data/gee_prism_midwest/, 2000-2023).
 Output: w_county_month.csv      one row per county x month, model years only (default 2000-2023)
         w_county_thresholds.csv per-county baseline thresholds (p95, p99, GEV return levels)
 
 Usage:
     pip install pandas numpy scipy
-    python w_indices.py --input data/nclimgrid_midwest --out-dir out/
+    python w_indices.py --input data/gee_prism_midwest --out-dir out/prism_midwest/ --base-start 2000 --base-end 2009 --model-start 2000 --model-end 2023
 
 Leakage rules followed here:
   * All thresholds (wet-day p95/p99, GEV return levels, SPI distributions) are fitted on the
-    baseline period only (default 1951-1999), never on model years.
+    baseline period only (default 1951-1999; the project uses 2000-2009), never on model years.
   * "Prior-month" features (spi1_prev, spi2_prev, frost_days_prev) use only months before the target.
   * Same-month features (p_month, rx*, n_gt_p95, ...) describe the realized hazard in the target month,
     which is how the W block is defined in the plan.

@@ -6,7 +6,7 @@ chosen on 2000-2012 -> 2013-2016), predicts the 2017-2023 test years, and checks
 results/missouri_prism/scores.csv.
 
 It also adds the adaptation columns for the app's "Adaptation" layers (not inputs of the forecast
-model; they are the A variables of adjustment_models.py), read from data/clean/ with the same
+model; they are the adaptation variables of causal_model.py), read from data/clean/ with the same
 one-year lag as merge_panel.py: nfip_policies_per_hu, crs_best_class, median_income,
 built_pre1980_share.
 

@@ -6,7 +6,7 @@
 // Setup: upload gee_app/missouri_tester/mo_flood_app_table.csv as a table asset, then make sure
 // ASSET_ID below matches where you saved it.
 //
-// Merged with gee_app/gee_exposure_app.js: adds the wettest-5-days PRISM layer, GHSL interpolated
+// Merged with the earlier exposure app (on the enci-dev branch): adds the wettest-5-days PRISM layer, GHSL interpolated
 // between 5-year images (as in ghsl_features.py), and source maps for 2000-2023 (predictions: 2017-2023).
 
 var ASSET_ID = 'projects/flood-513221/assets/mo_flood_app_table';
@@ -134,7 +134,7 @@ var GROUPS = {
     'County land area (log)': county('log_land_km2', 6.5, 7.9, GRAY, plain, 'ln of km2', 'log_land_km2, from Census TIGER. Fixed for each county.'),
     'Wetland share': county('wetland_share', 0, 0.085, GREEN, pct, 'share of county, year - 1', 'wetland_share, from Annual NLCD.')
   },
-  // not inputs of the forecast model: the adaptation (A) variables of adjustment_models.py,
+  // not inputs of the forecast model: the adaptation variables of causal_model.py,
   // all from year - 1 as in merge_panel.py
   'Adaptation (county values)': {
     'Flood insurance': county('nfip_policies_per_hu', 0, 0.04, GREEN, per100, 'NFIP policies per 100 homes, year - 1',
