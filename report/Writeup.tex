@@ -1,4 +1,3 @@
-% possibly misaligned with the actual Latex document 
 \documentclass[10pt,twocolumn]{article}
 \usepackage[letterpaper,hmargin=0.5in,vmargin=0.55in]{geometry}
 \setlength{\columnsep}{0.25in}              % gutter between columns
@@ -31,6 +30,7 @@
 \usepackage{tikz-cd}
 \usetikzlibrary{automata, positioning, arrows}
 \usepackage{microtype}                     % better line breaking in narrow columns
+\setlength{\emergencystretch}{1.5em}
 \usepackage{xurl}                          % let long URLs break anywhere
 \usepackage{hyperref}
 
@@ -53,15 +53,14 @@
 
 {\small
 Emergency responders need to know in advance which communities a flood will hit hardest, but
-damage depends on the community as well as the storm: how much is built there, how close it
+damage depends on the community as much as the storm: how much is built there, how close it
 sits to rivers, and how well prepared it is. We predict monthly flood property damage for the
 1,055 counties of 12 Midwest states from 2000 to 2023, combining SHELDUS loss records with rain,
 snow, soil, land-cover, terrain and built-up data. A two-part hurdle model predicts whether any
 damage occurs and, if it does, which loss class it falls in: under \$10k, \$10k--\$100k,
 \$100k--\$1M, or \$1M or more. LightGBM, the main model, ranks county-months well on the test
 years (ROC-AUC 0.89), ahead of a generalized linear model and each county's own damage history.
-Separate causal models shows that 25\,mm more rain roughly
-doubles a county's chance of flood damage, that this effect holds after accounting for climate and preparedness, and that the same storm does less harm in higher-income counties but not in better-insured ones.
+A separate causal model shows that 25\,mm more rain roughly doubles a county's chance of flood damage, that this effect holds after accounting for climate and preparedness, and that higher-income counties are damaged less often, while better-insured ones are not.
 \par}
 
 \vspace{0.4cm}
@@ -75,31 +74,28 @@ not only how much rain will fall. We build an impact model from past floods and 
 counties by their predicted chance of a severe loss.
 
 Two features of the problem make this difficult. First, loss records are sparse and uneven:
-only 3\% of county-months have a flood loss in SHELDUS, reporting rates differ between states,
+only 3\% of county-months (9,845 of 303,840) have a flood loss in SHELDUS, reporting rates differ between states,
 and losses spanning several counties are often split equally among them. Second, the effect of
 storms on loss may be confounded. Wetter counties receive larger storms but may also adapt more,
 through flood insurance and floodplain management, which lowers the damage a storm causes.
 
 We address the first with a two-part model that separates whether damage occurs from how large
 it is, trained on 2000--2016 and tested on 2017--2023. We address the second with a set of
-causal models that test whether accounting for rain climate and measured adaptation changes the
-\emph{storm effect}, how much more rain raises a county's chance of flood damage. Our main
-contribution is a county-month model that ranks counties by their chance of a severe flood loss;
-a secondary analysis tests whether climate and preparedness change the estimated storm effect.
+causal models that test whether accounting for rain climate and measured adaptation changes
+the estimated effect of storms on damage. Our main contribution is a county-month model that ranks counties by their chance of a severe flood loss; a secondary analysis tests whether climate and preparedness change the estimated storm effect, and estimates how much more rain raises a county's chance of flood damage.
 
 
 \section{Related Works}
-\textcolor{red}{Recheck at the end}
 
 \paragraph{Floods, rainfall and damage.}
 Heavy rainfall alone does not explain flooding. Across 420 U.S. catchments,
-\citet{berghuijs2016} found that extreme precipitation controls floods only in the central arid region; elsewhere, rain on already wet soil or snowmelt dominates. \citet{slater2016} found rising flood frequency in the upper Midwest and Great Lakes, tracking long-term basin wetness. On the damage side, \citet{davenport2021} used state-level SHELDUS data in a fixed-effects panel and attributed about 36\% of 1988--2017 flood damages to historical precipitation change, mostly from the wettest months. At the county scale, \citet{brody2008} found that rainfall the day before a flood was the strongest physical predictor of property damage in eastern Texas. Damage should therefore be modelled with soil wetness and snow as well as rain, and expected to vary by region.
+\citet{berghuijs2016} found that extreme precipitation controls floods only in the central arid region; elsewhere, rain on already wet soil or snowmelt dominates. \citet{slater2016} found rising flood frequency in the upper Midwest and Great Lakes, tracking long-term basin wetness. On the damage side, \citet{davenport2021} used state-level SHELDUS data in a fixed-effects panel and attributed about 36\% of 1988--2017 flood damages to historical precipitation change, mostly from extremely wet conditions. At the county scale, \citet{brody2008} found that rainfall the day before a flood was the strongest physical predictor of property damage in eastern Texas. Damage should therefore be modeled with soil wetness and snow as well as rain, and expected to vary by region.
 
 \paragraph{Exposure and vulnerability.}
-How much is in harm's way often matters as much as the storm. \citet{brody2008} found more damage where wetlands had been altered and land paved over, and less where communities had dams or took part in FEMA's Community Rating System. \citet{liu2015} projected Indiana flood damage to rise 13--17\% over about two decades, mostly from new housing rather than heavier rain, with the main driver differing between counties. \citet{tellman2020} showed that rural and socially vulnerable counties suffer more property damage for a given flood intensity. Both results support modelling at the county level rather than with state averages.
+How much is in harm's way often matters as much as the storm. \citet{brody2008} found more damage where wetlands had been altered and land paved over, and less where communities had dams or took part in FEMA's Community Rating System. \citet{liu2015} projected Midwest flood damage to rise 13--17\% over about two decades, where county-level damages vary from 2\% to 40\% depending on the location.\citet{tellman2020} showed that rural and socially vulnerable counties suffer more property damage for a given flood intensity. Both works support modeling at the county level for direct insights.
 
 \paragraph{Adaptation.}
-Losses also depend on how prepared places are. \citet{kreibich2022} found that risk management generally lowers flood impacts, but not when a new event exceeds what defenses were designed for. \citet{gallagher2013} showed that flood-insurance take-up rises about 9\% after a flood and fades over about nine years, so preparedness follows recent experience. Because wetter places both flood more and prepare more, adaptation can hide part of the true effect of storms on damage.
+Losses also depend on how prepared places are. \citet{kreibich2022} found that risk management generally lowers flood impacts, but not when a new event exceeds what defenses were designed for. \citet{gallagher2013} showed that flood-insurance take-up rises about 9\% after a flood and fades over about nine years, so preparedness follows recent experience. Because wetter places may both flood more and prepare more, adaptation can hide part of the true effect of storms on damage.
 
 \section{Model Description}
 \subsection{Problem Setup and Causal Framing}
@@ -121,7 +117,7 @@ $W$ (storm)        & How much rain fell: the county's wettest 5-day rainfall in 
 $C$ (rain climate) & How wet the county normally is: the 5-day rainfall it can expect about once every 10 years, in mm. \\
 $A$ (adaptation)   & How prepared the county is. Our main measure is flood-insurance policies per 100 homes. \\
 $X$ (exposure)     & How much property is in harm's way: the county's built-up area. \\
-$Y$ (loss)         & Flood property damage in the county-month. \\
+$Y$ (loss)         & Flood property damage in the county-month combination. \\
 \bottomrule
 \end{tabularx}
 \caption{Variables in the causal diagram (Figure~\ref{fig:dag}).}
@@ -142,7 +138,7 @@ adaptation $A$, opening the backdoor path $W \leftarrow C \rightarrow A \rightar
 
 \subsection{Selecting the Factors}
 \label{sec:factors}
-Within each group, candidate variables came from flood-loss literatures. A variable is only kept if it met four rules:
+Within each part of Figure~\ref{fig:dag}, candidate variables came from the flood-loss literature. A variable was kept only if it met:
 \begin{enumerate}
 \item \textbf{A physical or economic mechanism}. It must describe a documented way that loss arises (for example, saturated soil turns rain into runoff; floodplain land floods first).
 \item \textbf{One variable per mechanism}. Measures of the same mechanism are near-copies that split its effect, so we keep one, and drop one of any pair correlated above 0.8.
@@ -172,28 +168,20 @@ probability of a severe loss, $\pi(\mathbf{x}_{it}) \, q_4(\mathbf{x}_{it})$.
 
 \paragraph{Explorer app.} The predictions are presented in a Google Earth Engine app. The
 predictions are computed outside Earth Engine and uploaded as a table. A user selects a state (or
-all 12) and a month, and the map colours each county by a chosen layer. The prediction layers
+all 12) and a month, and the map colors each county by a chosen layer. The prediction layers
 show:
 \begin{itemize}
   \item the chance of any damage,
-  \item the most likely loss class if damage occurs,
-  \item each county's rank within its state and across the Midwest,
-  \item the recorded loss class and amount if applicable
+  \item rank in the state,
+  \item rank in the midwest, 
+  \item predicted loss class, 
+  \item and the recorded loss class and amount if applicable.
 \end{itemize}
 The counties in each state's top 5\% are outlined.  Clicking a county lists its chance of damage, its ranks, the predicted loss class with the chance of each class, the recorded loss, and its input values,
 with a chart of its predictions over 2017--2023. The predictions use the rain observed in each
 month, so they estimate the impact of a known storm rather than forecast one in advance.
 
-\begin{comment}
-Possibly don't need this section but we can discuss
-
-The outcome of this hurdle model is useful for estimating where losses will occur and how large
-they will be. The goal, however, is sometimes not only to predict but to understand how
-different variables affect the outcome. For that we turn to the adjustment models in the next
-section.
-\end{comment}
-
-\subsection{Inputs.} Both parts of the hurdle model use the same twelve inputs, one per mechanism (Section~\ref{sec:factors}), plus calendar month for seasonality and state for differences in loss reporting:
+\paragraph{Inputs.} Both parts of the hurdle model use the same twelve inputs, one per mechanism (Section~\ref{sec:factors}), plus calendar month for seasonality and state for differences in loss reporting:
 
 \begin{table}[H]
 \centering
@@ -247,9 +235,7 @@ learn anything beyond where and when floods have usually happened.
 \subsection{Causal Model}
 \label{sec:causal}
 
-The prediction model is judged by how accurately it ranks counties. The causal model has a
-different goal: to estimate how much a bigger storm raises the chance of flood damage, and whether
-that effect is smaller in better-prepared counties. Because wetter counties get bigger storms and
+The prediction model is judged by how accurately it ranks counties. The causal model instead estimates the \emph{storm effect}: how much more likely an extra 25\,mm of rain makes flood damage in a county, and whether that effect is smaller in better-prepared counties. Because wetter counties get bigger storms and
 may also prepare more (Figure~\ref{fig:dag}), comparing storms across counties without accounting
 for climate and preparedness can misstate the storm effect. We follow the course design of five
 nested models, measuring every variable in real world units. In particular, the storm is
@@ -261,15 +247,14 @@ flood-insurance data, including months with no damage. We model two outcomes: wh
 recorded \emph{any} flood damage, and whether it recorded a \emph{major} loss of \$100{,}000 or
 more.
 
-\paragraph{Variables.} Storm is the effect we estimate; climate and preparedness are what may
-distort or change it (Table~\ref{tab:adj-vars}). We include all five preparedness measures of the
-course design. Insurance is our main measure, because it is the most direct measure of flood
-preparedness; the other four are reported for completeness.
+\paragraph{Variables.} Storm is the effect we estimate; climate may distort or
+change it (Table~\ref{tab:adj-vars}). We include all five preparedness measures of the
+course design, with insurance as the main one, since it most directly measures flood preparedness.
 
 \begin{table}[H]
 \centering
 \small
-\renewcommand{\arraystretch}{1.2}
+\renewcommand{\arraystretch}{1.15}
 \begin{tabularx}{\linewidth}{@{}lL>{\raggedright\arraybackslash}p{2.0cm}@{}}
 \toprule
 Part of the diagram & What we measure & Effect described per \\
@@ -280,15 +265,17 @@ $X$ exposure     & built-up area (km$^2$)                               & twice 
 $A$ preparedness & flood-insurance policies per 100 homes (main)        & 1 more per 100 homes \\
                  & median household income (2024 \$)                    & \$10{,}000 more \\
                  & share of homes built before 1980                     & 10 points more \\
-                 & share of the county in wetland                       & 5 points more \\
+                 & share of the county in wetland                       & 5 points  more \\
                  & any community in the Community Rating System         & yes vs no \\
 Background       & soil wetness, snowpack and frozen ground at the start of the month;
                    low-lying land; calendar month; state                & -- \\
 \bottomrule
 \end{tabularx}
-\caption{Variables in the causal model.}
+\caption{Variables in the causal model. ``Points'' are percentage points: for example, a share of homes built before 1980 rising from 60\% to 70\% is 10 points more.}
 \label{tab:adj-vars}
 \end{table}
+
+
 \paragraph{Model.} For each outcome we fit a logistic regression: the chance of damage rises
 smoothly with a weighted sum of the variables,
 \begin{align}
@@ -297,7 +284,7 @@ smoothly with a weighted sum of the variables,
                &\quad + \sum_j \alpha_j\,\text{Prep}_j + \text{background} \nonumber \\
                &\quad + \sum_j \delta_j\,(\text{Rain} \times \text{Prep}_j).
 \end{align}
-Each preparedness measure is centred at its average, so $\beta$ is the storm effect in a county of
+Each preparedness measure is centered at its average, so $\beta$ is the storm effect in a county of
 average preparedness. The weight $\delta_j$ answers whether the same extra rain does less harm in
 counties with more of measure $j$: a negative $\delta_j$ means yes. We read preparedness from
 $\delta_j$ rather than $\alpha_j$, because $\alpha_j$ also reflects which counties choose to
@@ -310,33 +297,33 @@ county-months, so that the change in the storm effect shows what each part was h
 \begin{table}[H]
 \centering
 \small
-\renewcommand{\arraystretch}{1.15}
-\begin{tabularx}{\linewidth}{@{}lLL@{}}
+\renewcommand{\arraystretch}{1.1}
+\begin{tabularx}{\linewidth}{@{}llL@{}}
 \toprule
 Model & Adds & Compares storms \ldots \\
 \midrule
-M0 & rain, built-up area, background & across all counties, ignoring climate and preparedness \\
-M1 & + climate                       & among counties with a similar climate \\
-M2 & + preparedness                  & among similarly prepared counties \\
-M3 & + climate and preparedness      & among counties similar in both: our best estimate of the storm effect \\
-M4 & + rain $\times$ each preparedness measure & and asks whether the storm effect is smaller in better-prepared counties \\
+M0 & rain, built-up, background & ignoring climate and preparedness \\
+M1 & + climate                  & among similar climates \\
+M2 & + preparedness             & among similarly prepared counties \\
+M3 & + both                     & among counties similar in both (best estimate) \\
+M4 & + rain $\times$ preparedness & and whether it is smaller where better prepared \\
 \bottomrule
 \end{tabularx}
 \caption{The five nested models.}
 \label{tab:m0m4}
 \end{table}
+A change in the storm effect from M0 to M3 shows how much ignoring climate and preparedness
+would mislead. Standard errors account for repeated months from the same county.
 
-Including the relationship between storm effect, climate and preparedness is necessary when interpreting the causal analysis result. If the storm effect changes from M0 to M3, Ignoring climate and preparedness would have given a misleading answer when predicting the loss. Standard errors account for repeated months from the same county.
+\paragraph{Interpreting the results.} We report $e^b$: how many times more likely damage becomes when a variable increases by one step. For example, $e^b = 2.4$ for 25\,mm more rain means damage becomes about 2.4 times as likely. $e^b$ multiplies the odds rather than the chance of
+damage, but for a rare event like this (about 3\% of county-months) the two are almost the same. 
 
-\paragraph{Interpreting the results.} A logistic weight is hard to read on its own, so we turn
-each effect into the change it makes to the chance of damage: we compute every county-month's
-chance with and without the change in Table~\ref{tab:adj-vars} (for example, 25\,mm more rain)
-and average the difference. In Section~\ref{sec:adj-results} we describe each result in words and
-by comparison, and give the numbers in a table.
+\begin{comment}
+For the main effects we also give the change in chance in percentage points, such as from 2.85\% to about 5.7\%.
+\end{comment}
 
 \paragraph{Checks.} We refit with ordinary regression on the yes/no outcomes, whose coefficients
-are changes in probability directly; with storm size relative to the county's 10-year level, as
-in the course design; and with each county's past flood frequency added as a control, since
+are changes in probability directly; with storm size relative to the county's 10-year level; and with each county's past flood frequency added as a control, since
 counties that flooded before buy more insurance.
 
 
@@ -348,28 +335,26 @@ Iowa, Kansas, Michigan, Minnesota, Missouri, Nebraska, North Dakota, Ohio, South
 Wisconsin), monthly from 2000 to 2023. The outcome is county-month flood property loss from
 SHELDUS, in 2024 dollars.
 
-\paragraph{Inputs.} Table~\ref{tab:inputs} lists the inputs. Each Earth Engine dataset is
-averaged over every county boundary (Census TIGER 2018). Yearly inputs enter from the previous
-year, so every input except the month's own weather was known before the month began.
+\paragraph{Inputs.} Table~\ref{tab:inputs} lists the inputs, averaged over each county boundary (Census TIGER 2018). Yearly inputs enter from the previous year, so every input except the month's own weather was known before the month began. The 10-year level overlaps the first training years but uses rain only and ends before the test years.
 
 \begin{table}[H]
 \centering
 \small
-\renewcommand{\arraystretch}{1.15}
+\renewcommand{\arraystretch}{1.10}
 \begin{tabularx}{\linewidth}{@{}l>{\raggedright\arraybackslash}p{1.5cm}L@{}}
 \toprule
 Source & Resolution & Variables \\
 \midrule
-\multicolumn{3}{@{}l}{\textit{All models}} \\
-PRISM       & 4 km, monthly & rain; days below freezing; wettest 5 days $\div$ county's 10-year
+\multicolumn{3}{@{}l}{\textit{Prediction and causal models}} \\
+PRISM       & 4 km, daily & rain; days below freezing; wettest 5-day rain and the county's 10-year
                               5-day rain level (fitted on 2000--2009) \\
-ERA5-Land   & 11 km, monthly & snowmelt; snowpack and root-zone soil moisture on day 1 (soil
+ERA5-Land   & 11 km, daily and monthly & snowmelt$^\dagger$; snowpack and root-zone soil moisture on day 1 (soil
                               moisture as a percentile vs.\ 1950--1999, same county and month) \\
 GHSL        & 100 m, 5-yearly (interpolated) & built-up surface \\
-Annual NLCD & 90 m, yearly & paved share; wetland share \\
+Annual NLCD & 30 m, yearly & paved share$^\dagger$; wetland share \\
 MERIT Hydro & 90 m, static & land $<$5 m above drainage \\
 \midrule
-\multicolumn{3}{@{}l}{\textit{Causal models only}} \\
+\multicolumn{3}{@{}l}{\textit{Causal model only}} \\
 IPUMS NHGIS & county & median household income (2024 \$); share of homes built before 1980 \\
 OpenFEMA    & county, yearly & flood insurance policies per 100 homes; any community in the
                               Community Rating System \\
@@ -377,9 +362,13 @@ SHELDUS     & county, monthly & past flood frequency: share of months with damag
                               10 years (one check only; otherwise outcome only) \\
 \bottomrule
 \end{tabularx}
-\caption{Model inputs by source.}
+\caption{Model inputs by source. The prediction model uses storm size as the wettest 5-day rain
+divided by the 10-year level; the causal model uses both in millimetres. Census data from IPUMS
+NHGIS \citep{nhgis2026}; flood-insurance data from OpenFEMA \citep{fema2026}, used without FEMA
+endorsement. $^\dagger$Prediction model only.}
 \label{tab:inputs}
 \end{table}
+
 
 \subsection{Setup}
 SHELDUS lists only the months that had a loss. We therefore build a full panel: every county for
@@ -406,7 +395,7 @@ Top 5\% of counties: share of loss & 24\%  & 61\%  & \textbf{62\%} \\
 \label{tab:pred-results}
 \end{table}
 
-LightGBM is the more accurate model. To predict the size of the
+We found LightGBM to be the more accurate model. To predict the size of the
 loss when damage occurs, we first evaluated a regression on log10 dollars. Its typical error was a factor of about 7, which indicated that the data supports order-of-magnitude estimates rather than exact amounts. We therefore model the loss class directly. To compare the two approaches,
 we converted each dollar prediction into the class it falls in (for example, a predicted \$50k
 loss counts as moderate) and scored both on the same test months. The class model achieves similar
@@ -420,59 +409,13 @@ a severe loss retains nearly all of the ranking performance of the dollar-based 
 
 The causal model covers all 164{,}580 county-months in 2011--2023. In an average month, a county
 has a 2.85\% chance of recording any flood damage and a 1.05\% chance of a loss of \$100{,}000 or
-more. Effects below are changes in these chances, in percentage (points).
+more. Table~\ref{tab:causal-coefs} gives the coefficients of the full model (M3) and, for
+preparedness, of M4. A coefficient $b$ changes the log-odds of damage per step, and $e^b$ is how
+many times the odds are multiplied. Because damage is rare, odds and chances are almost the same,
+so $e^b = 2.4$ reads as ``about 2.4 times as likely''.
 
-\paragraph{Rain is the main driver of damage.} An extra 25\,mm (about an inch) of rain in a
-county's wettest five days roughly doubles its chance of damage: +2.9 points for any damage and
-+1.3 points for a \$100k+ loss (Table~\ref{tab:causal-main}). This is about five times the effect
-of doubling the county's built-up area (+0.6 and +0.4 points), the next largest factor.
 
-\paragraph{Accounting for climate and preparedness barely changes the rain effect.} The rain effect
-stays within 0.1 points from M0 to M4 for both outcomes, so comparing counties without accounting
-for climate and preparedness does not distort it. The rise in the storm effect found with the
-course design's storm measure (rainfall relative to the county's 10-year level) reappears in our
-check with that measure (1.16 to 1.28 points per 0.1 of the 10-year level for any damage), so it
-comes from how that measure combines storm and climate, not from confounding.
 
-\begin{table*}[t]
-\centering
-\small
-\renewcommand{\arraystretch}{1.15}
-\begin{tabularx}{\textwidth}{@{}Lcc@{}}
-\toprule
-Effect (model) & Any damage & Loss of \$100k+ \\
-\midrule
-Rain +25\,mm, no climate or preparedness (M0) & +2.94 [2.76, 3.12] & +1.29 [1.20, 1.39] \\
-Rain +25\,mm, + climate (M1)                   & +2.89 [2.72, 3.07] & +1.31 [1.21, 1.40] \\
-Rain +25\,mm, + preparedness (M2)              & +2.90 [2.74, 3.07] & +1.29 [1.20, 1.38] \\
-Rain +25\,mm, + both (M3)                      & +2.87 [2.70, 3.04] & +1.30 [1.21, 1.40] \\
-Rain +25\,mm, + rain $\times$ preparedness (M4)& +2.91 [2.74, 3.08] & +1.32 [1.22, 1.41] \\
-\midrule
-Climate 25\,mm wetter, same rain (M3)          & +0.30 [0.01, 0.58] & $-0.12$ [$-0.22$, $-0.02$] \\
-Built-up area doubled (M3)                     & +0.59 [0.40, 0.78] & +0.37 [0.28, 0.47] \\
-\bottomrule
-\end{tabularx}
-\caption{Average change in the chance of damage, in percentage points [95\% interval], 12 states,
-2011--2023. Base chances: 2.85\% (any damage) and 1.05\% (\$100k+).}
-\label{tab:causal-main}
-\end{table*}
-
-\paragraph{For the same rain, wetter climates see fewer large losses.} A county in a climate
-25\,mm wetter is slightly less likely to have a \$100k+ loss from the same rain ($-0.12$
-points, about a tenth of the base chance), consistent with the proposed design where places used to heavy rain having
-adapted to it. For any damage, the effect is small and only borderline (+0.30 points), and it
-disappears in the linear-probability check.
-
-\paragraph{Income, not insurance, is the preparedness measure that softens storms.} In counties
-with higher median income (\$80k instead of \$53k, the 90th and 10th percentiles), 25\,mm more rain
-increases the chance of any damage by 2.4 points instead of 3.5, about a third less likely, and of a
- loss of \$ 100k + by 1.2 points instead of 1.5 (Table~\ref{tab:causal-prep}). Flood insurance, our main
-measure, does not decrease the effect of storms: the rain effect is \emph{larger} in well-insured counties (3.1
-vs 2.7 points for any damage). We read this as insurance marking flood-prone places, such as
-counties along major rivers, which both buy more insurance and suffer more from heavy rain; adding
-each county's past flood frequency halves the gap but does not remove it
-(Figure~\ref{fig:causal-ins}). The share of older homes, wetland share and Community Rating System
-participation show no clear effect.
 
 \begin{table*}[t]
 \centering
@@ -482,34 +425,97 @@ participation show no clear effect.
 \toprule
  & \multicolumn{2}{c}{Any damage} & \multicolumn{2}{c}{Loss of \$100k+} \\
 \cmidrule(lr){2-3}\cmidrule(lr){4-5}
-Preparedness measure (low vs high) & low $\rightarrow$ high & difference & low $\rightarrow$ high & difference \\
+Variable (per step) & $b$ (SE) & $e^b$ & $b$ (SE) & $e^b$ \\
 \midrule
-Flood insurance (0.05 vs 1.82 per 100 homes) & 2.71 $\rightarrow$ 3.13 & +0.43* & 1.28 $\rightarrow$ 1.36 & +0.08 \\
-Median income (\$53k vs \$80k)               & 3.52 $\rightarrow$ 2.44 & $-1.07$* & 1.52 $\rightarrow$ 1.16 & $-0.37$* \\
-Homes built before 1980 (49\% vs 82\%)       & 2.99 $\rightarrow$ 2.84 & $-0.16$ & 1.25 $\rightarrow$ 1.38 & +0.13 \\
-Wetland share (0.3\% vs 15\%)                & 3.00 $\rightarrow$ 2.81 & $-0.19$ & 1.35 $\rightarrow$ 1.32 & $-0.02$ \\
-Any CRS community (no vs yes)                & 2.85 $\rightarrow$ 3.18 & +0.33 & 1.33 $\rightarrow$ 1.24 & $-0.10$ \\
+\multicolumn{5}{@{}l}{\emph{Storm, exposure and climate (M3)}} \\
+Rain in wettest 5 days (+25\,mm)       & 0.877 (0.018)* & 2.40 & 0.985 (0.023)* & 2.68 \\
+\quad same, without climate or preparedness (M0) & 0.885 (0.017)* & 2.42 & 0.976 (0.022)* & 2.66 \\
+Built-up area (doubled)                & 0.230 (0.035)* & 1.26 & 0.366 (0.041)* & 1.44 \\
+Climate, same rain (+25\,mm)           & 0.121 (0.056)* & 1.13 & $-0.144$ (0.064)* & 0.87 \\
+\midrule
+\multicolumn{5}{@{}l}{\emph{Preparedness (M3)}} \\
+Flood insurance (+1 per 100 homes)     & 0.129 (0.024)* & 1.14 & 0.065 (0.026)* & 1.07 \\
+Median income (+\$10k)                 & $-0.222$ (0.041)* & 0.80 & $-0.149$ (0.040)* & 0.86 \\
+Homes built before 1980 (+10 pts)      & $-0.034$ (0.039) & 0.97 & 0.051 (0.042) & 1.05 \\
+Wetland share (+5 pts)                 & $-0.089$ (0.034)* & 0.92 & $-0.085$ (0.037)* & 0.92 \\
+Any CRS community (yes)                & 0.120 (0.095) & 1.13 & $-0.034$ (0.120) & 0.97 \\
+\midrule
+\multicolumn{5}{@{}l}{\emph{Does preparedness change the effect of rain? Rain $\times$ measure (M4)}} \\
+Rain $\times$ insurance                & $-0.008$ (0.010) & 0.99 & $-0.012$ (0.012) & 0.99 \\
+Rain $\times$ income                   & 0.028 (0.012)* & 1.03 & 0.015 (0.014) & 1.02 \\
+Rain $\times$ homes before 1980        & 0.008 (0.011) & 1.01 & $-0.017$ (0.013) & 0.98 \\
+Rain $\times$ wetland share            & 0.035 (0.012)* & 1.04 & 0.051 (0.016)* & 1.05 \\
+Rain $\times$ any CRS community        & 0.027 (0.037) & 1.03 & $-0.051$ (0.041) & 0.95 \\
+\midrule
+\multicolumn{5}{@{}l}{\emph{Background (M3)}} \\
+Soil wetness (+10 percentile points)   & 0.103 (0.007)* & 1.11 & 0.143 (0.011)* & 1.15 \\
+Snowpack (doubled)                     & 0.248 (0.021)* & 1.28 & 0.392 (0.028)* & 1.48 \\
+Days below freezing (+10)              & $-0.14$ (0.06)* & 0.87 & $-0.04$ (0.08) & 0.96 \\
+Low-lying land (+10 pts)               & $-0.034$ (0.018) & 0.97 & 0.014 (0.020) & 1.01 \\
 \bottomrule
 \end{tabularx}
-\caption{Effect of 25\,mm more rain at low and high values of each preparedness measure (M4),
-in percentage points. Low and high are the 10th and 90th percentiles across county-months. A
-negative difference means the storm does less harm where the measure is high.
-* 95\% interval excludes zero.}
-\label{tab:causal-prep}
+\caption{Logistic-regression coefficients, 12 states, 2011--2023, with standard errors clustered
+by county. $e^b$ is the factor by which one step multiplies the odds (about the chance) of
+damage; for the interactions, the factor by which one step of the measure multiplies the effect
+of 25\,mm more rain. Models also include calendar month and state. * 95\% interval excludes zero.}
+\label{tab:causal-coefs}
 \end{table*}
 
-\begin{figure}[H]
-\centering
-\includegraphics[width=\linewidth]{figures/causal_rain_insurance.png}
-\caption{Chance of damage against rain in the month's wettest five days, at low and high flood
-insurance (M4, other variables at their observed values).}
-\label{fig:causal-ins}
-\end{figure}
+\paragraph{Storm $\rightarrow$ loss: rain is the main driver.} An extra 25\,mm (about an inch) of
+rain in a county's wettest five days makes any damage about 2.4 times as likely ($b = 0.877$) and a
+\$100k+ loss about 2.7 times as likely ($b = 0.985$). In percentage points, this roughly doubles
+the chance of damage, from 2.85\% to about 5.7\%. No other variable comes close: rain is the
+dominant cause of damage in a given month, and its effect is larger for big losses than for small
+ones.
 
-\paragraph{Checks.} A linear probability model gives the same conclusions: rain raises the chance
-of any damage by about 4.2 points per 25\,mm with or without controls, wetter climates see fewer
-\$100k+ losses, and the rain effect is larger in well-insured counties. Adding past flood
-frequency leaves the rain effect unchanged (2.86 points in M3).
+\paragraph{The backdoor through climate does not distort the rain effect.} Figure~\ref{fig:dag}
+warns that comparing storms across counties could mix the storm effect with climate and
+preparedness. In practice the rain coefficient hardly moves when they are added: 0.885 without
+them (M0) and 0.877 with them (M3) for any damage, and 0.976 and 0.985 for \$100k+ losses. With
+rain measured in millimetres, the storm effect is therefore not confounded by climate in our
+data. With the course design's storm measure (rain relative to the county's 10-year level), the
+storm effect does rise when climate is added; that rise comes from the measure itself, which
+combines storm and climate in one number.
+
+\paragraph{Exposure $\rightarrow$ loss: more buildings, more damage.} Doubling a county's
+built-up area makes any damage 26\% more likely and a \$100k+ loss 44\% more likely. Exposure
+matters more for large losses, as expected: more buildings in the water's path mean more
+property to damage once flooding starts.
+
+\paragraph{Climate $\rightarrow$ loss: wet climates have more minor damage but fewer major
+losses.} For the same rain, a county whose 10-year storm is 25\,mm larger is 13\% more likely to
+have some damage ($b = 0.121$), but 13\% less likely to have a \$100k+ loss ($b = -0.144$). Wet
+climates see heavy rain more often, so small damage is more common, but places used to heavy rain
+appear to have adapted, so the same storm less often causes a major loss. This is the adaptation
+path $C \rightarrow A \rightarrow Y$ in Figure~\ref{fig:dag}, but the effect is small.
+
+\paragraph{Preparedness $\rightarrow$ loss: richer counties and wetlands are damaged less often.}
+Each \$10{,}000 of median income makes any damage 20\% less likely and a \$100k+ loss 14\% less
+likely, and each 5 points of wetland share makes both 8\% less likely, consistent with money to
+protect property and with wetlands storing floodwater. Older homes and Community Rating System
+participation show no clear effect. Flood insurance goes the other way: each additional policy per
+100 homes makes damage 14\% \emph{more} likely. Insurance does not cause damage; counties at high
+flood risk, such as those along major rivers, buy more of it, so this coefficient reflects where
+insurance is bought rather than what it does. For this reason we read preparedness from the
+interactions below.
+
+\paragraph{Preparedness $\times$ storm: preparation lowers risk but does not weaken rain.} The
+interaction terms ask whether the storm effect, about 2.4 times as likely in the average county,
+is smaller in better-prepared counties, that is, whether preparation makes heavy rain less
+dangerous. It does not. For insurance, rain raises the risk by the same factor at every
+level ($e^b = 0.99$). For income and wetland share, the factor is slightly \emph{larger}: each
+\$10{,}000 of income multiplies the storm effect by 1.03, and each 5 points more of the county in wetland by 1.04.
+What preparation changes is a county's starting chance of damage, not how much heavy rain raises
+it: richer counties are damaged less often to begin with, and well-insured counties more often.
+Multiplying a lower starting chance by the same factor adds fewer percentage points; for example,
+an extra 25\,mm of rain takes a county's chance of damage from 2\% to about 4.7\%, but a county from 4\% to about 9\%.
+This is why the same rain adds 2.4\% of chances of damage in richer counties but 3.5\% in poorer ones (90th vs 10th
+percentile of income), and 3.1\% points in well-insured counties but 2.7\% in poorly insured ones
+(not shown in the table).
+
+\paragraph{Checks.} A linear probability model gives the same conclusions: 25\,mm more rain raises
+the chance of any damage by about 4.2 \% (more than the logistic model's 2.9\%, because a straight line fits the curved relationship less closely), and wetter climates see fewer \$100k+ losses. Adding each county's past flood frequency leaves the rain effect unchanged and halves the higher chance of damage in well-insured counties.
+
 
 \subsection{Limitations}
 
@@ -528,8 +534,8 @@ frequency leaves the rain effect unchanged (2.86 points in M3).
         impact of a known storm. Using only information available before the month, a comparable
         LightGBM's ROC-AUC falls from about 0.90 to 0.76.
   \item \textbf{Associations, not causes.} The causal models control only for measured
-        factors, and counties choose how much to adapt. Insurance likely stands for marker of flood-prone places, such as NFIP floodplain building rules; the CRS measure is coarse (only 200
-        of 1{,}055 counties take part); and flood history only partly controlling for it.
+        factors, and counties choose how much to adapt. Insurance likely marks of flood-prone  rather than protection, and past flood frequency only partly controls for this; the CRS measure is coarse (only 200
+        of 1{,}055 counties take part).
 \item \textbf{Reused test years.} The test years were scored several times while we chose the study design, so the test scores are somewhat optimistic.
 \end{itemize}
 
@@ -538,30 +544,35 @@ frequency leaves the rain effect unchanged (2.86 points in M3).
 \label{sec:future}
 
 \paragraph{From impact model to forecast.} The model uses each month's observed rain. Feeding it
-a hazard forecast, such as precipitation forecasts or the National Water Model, would complete the
-chain from hazard forecast to loss forecast and show how much forecast error adds.
+a hazard forecast, such as precipitation forecasts or the National Water Model \citep{nwm2026}, would complete the
+chain from hazard forecast to loss forecast \citep{merz2020} and show how much forecast error adds.
 
-\paragraph{Better data.} Streamflow from USGS gauges, or rainfall over each county's upstream
+\paragraph{Better data.} Streamflow from USGS gauges \citep{usgs2026} , or rainfall over each county's upstream
 catchment, would capture river floods from elsewhere, such as Sarpy County in March 2019. Checking
-SHELDUS against NFIP claims, treating losses split across counties as one event, and down-weighting
+SHELDUS against NFIP claims \citep{fema2026}, treating losses split across counties as one event, and down-weighting
 round-number estimates would reduce noise in the outcome. A Community Rating System measure of
 coverage (the share of homes in participating communities), levees from the National Levee
-Database and local building codes would improve the adaptation measures.
+Database \citep{usace2026} and local building codes would improve the adaptation measures.
 
-\paragraph{Stronger causal analysis.} Implementing river-level data would let the model separate from flood-prone indications and insurances.
+\paragraph{Stronger causal analysis.} Implementing river-level data, such as distance to major rivers or upstream flow, would separate living in a flood-prone place from buying insurance.
 
 \paragraph{Calibration, scope and uncertainty.} Because reporting shifts over time, both the
-probability of damage and the loss classes should be recalibrated each year. Rainfall back to 1951
+probability of damage and the loss classes should be recalibrated each year. Rainfall back to 1951 \citep{durre2022}
 would allow training on 1985--2023, roughly doubling the damage months, and applying the model
 outside the Midwest would test how well it generalizes. Prediction intervals, for example by
-conformal prediction, would show emergency managers which county rankings are reliable and which
+conformal prediction \citep{angelopoulos2021}, would show emergency managers which county rankings are reliable and which
 are close calls.
 
-
-\section{References}
-
-\textcolor{blue}{[needs to add in the http for the doi ]}
 \begin{thebibliography}{}
+
+\bibitem[Angelopoulos and Bates(2021)]{angelopoulos2021}
+Angelopoulos, A.N. and Bates, S. (2021)
+`A gentle introduction to conformal prediction and distribution-free uncertainty quantification'.
+\textit{arXiv preprint} arXiv:2107.07511. \url{https://arxiv.org/abs/2107.07511}
+
+\bibitem[{Apache Software Foundation}(2026)]{arrow2026}
+Apache Software Foundation (2026)
+\textit{Apache Arrow: PyArrow (Python library)} [software]. \url{https://arrow.apache.org/docs/python/}
 
 \bibitem[Berghuijs et~al.(2016)]{berghuijs2016}
 Berghuijs, W.R., Woods, R.A., Hutton, C.J. and Sivapalan, M. (2016)
@@ -571,17 +582,54 @@ Berghuijs, W.R., Woods, R.A., Hutton, C.J. and Sivapalan, M. (2016)
 \bibitem[Brody et~al.(2008)]{brody2008}
 Brody, S.D., Zahran, S., Highfield, W.E., Grover, H. and Vedlitz, A. (2008)
 `Identifying the impact of the built environment on flood damage in Texas'.
-\textit{Disasters}. 32(1). pp.~1--18. \url{ https://doi.org/10.1111/j.0361-3666.2007.01024.x}
+\textit{Disasters}. 32(1). pp.~1--18. \url{https://doi.org/10.1111/j.0361-3666.2007.01024.x}
 
 \bibitem[Davenport et~al.(2021)]{davenport2021}
 Davenport, F.V., Burke, M. and Diffenbaugh, N.S. (2021)
 `Contribution of historical precipitation change to US flood damages'.
 \textit{Proceedings of the National Academy of Sciences}. 118(4). e2017524118. \url{https://doi.org/10.1073/pnas.2017524118}
 
+\bibitem[Durre et~al.(2022)]{durre2022}
+Durre, I., Arguez, A., Schreck, C.J., Squires, M.F. and Vose, R.S. (2022)
+`Daily high-resolution temperature and precipitation fields for the contiguous United States from
+1951 to present'. \textit{Journal of Atmospheric and Oceanic Technology}. 39(12). pp.~1837--1855.
+\url{https://doi.org/10.1175/JTECH-D-22-0024.1}
+
+\bibitem[{Federal Emergency Management Agency}(2026)]{fema2026}
+Federal Emergency Management Agency (2026)
+\textit{OpenFEMA dataset: FIMA NFIP Redacted Policies -- v3}.
+Washington, DC: FEMA. Accessed 9 November 2026.
+\url{https://www.fema.gov/openfema-data-page/fima-nfip-redacted-policies-v3}
+
 \bibitem[Gallagher(2013)]{gallagher2013}
 Gallagher, J. (2013)
 \textit{Learning about an infrequent event: Evidence from flood insurance take-up in the US}.
 Working paper. Case Western Reserve University, Cleveland, OH. \url{https://www.montana.edu/gallagher/documents/flood_insurance_aeja.pdf}
+
+\bibitem[Google(2026)]{eeapi2026}
+Google (2026)
+\textit{Earth Engine Python API (earthengine-api)} [software]. \url{https://github.com/google/earthengine-api}
+
+\bibitem[Gorelick et~al.(2017)]{gorelick2017}
+Gorelick, N., Hancher, M., Dixon, M., Ilyushchenko, S., Thau, D. and Moore, R. (2017)
+`Google Earth Engine: Planetary-scale geospatial analysis for everyone'.
+\textit{Remote Sensing of Environment}. 202. pp.~18--27. \url{https://doi.org/10.1016/j.rse.2017.06.031}
+
+\bibitem[Harris et~al.(2020)]{harris2020}
+Harris, C.R., Millman, K.J., van der Walt, S.J., Gommers, R., Virtanen, P., Cournapeau, D., et~al. (2020)
+`Array programming with NumPy'.
+\textit{Nature}. 585. pp.~357--362. \url{https://doi.org/10.1038/s41586-020-2649-2}
+
+\bibitem[Hunter(2007)]{hunter2007}
+Hunter, J.D. (2007)
+`Matplotlib: A 2D graphics environment'.
+\textit{Computing in Science \& Engineering}. 9(3). pp.~90--95. \url{https://doi.org/10.1109/MCSE.2007.55}
+
+\bibitem[Ke et~al.(2017)]{ke2017}
+Ke, G., Meng, Q., Finley, T., Wang, T., Chen, W., Ma, W., Ye, Q. and Liu, T.-Y. (2017)
+`LightGBM: A highly efficient gradient boosting decision tree'.
+\textit{Advances in Neural Information Processing Systems}. 30. pp.~3146--3154.
+\url{https://proceedings.neurips.cc/paper/2017/hash/6449f44a102fde848669bdd9eb6b76fa-Abstract.html}
 
 \bibitem[Kreibich et~al.(2022)]{kreibich2022}
 Kreibich, H. et~al. (2022)
@@ -593,30 +641,102 @@ Liu, J., Hertel, T.W., Diffenbaugh, N.S., Delgado, M.S. and Ashfaq, M. (2015)
 `Future property damage from flooding: Sensitivities to economy and climate change'.
 \textit{Climatic Change}. 132. pp.~741--749. \url{https://doi.org/10.1007/s10584-015-1478-z}
 
+\bibitem[McKinney(2010)]{mckinney2010}
+McKinney, W. (2010)
+`Data structures for statistical computing in Python'.
+In: \textit{Proceedings of the 9th Python in Science Conference}. pp.~56--61.
+\url{https://doi.org/10.25080/Majora-92bf1922-00a}
+
 \bibitem[Merz et~al.(2020)]{merz2020}
 Merz, B., Kuhlicke, C., Kunz, M., Pittore, M., Babeyko, A., Bresch, D.N., et~al. (2020)
 `Impact forecasting to support emergency management of natural hazards'.
-\textit{Reviews of Geophysics}. 58. e2020RG000704. \url{https://doi.org/10.1029/2020RG000704}. \textcolor{blue}{[verified]}
+\textit{Reviews of Geophysics}. 58. e2020RG000704. \url{https://doi.org/10.1029/2020RG000704}
+
+\bibitem[{NOAA Office of Water Prediction}(2026)]{nwm2026}
+NOAA Office of Water Prediction (2026)
+\textit{The National Water Model}. \url{https://water.noaa.gov/about/nwm}
+
+\bibitem[Pedregosa et~al.(2011)]{pedregosa2011}
+Pedregosa, F., Varoquaux, G., Gramfort, A., Michel, V., Thirion, B., Grisel, O., et~al. (2011)
+`Scikit-learn: Machine learning in Python'.
+\textit{Journal of Machine Learning Research}. 12. pp.~2825--2830. \url{https://jmlr.org/papers/v12/pedregosa11a.html}
+
+\bibitem[{Python Software Foundation}(2026)]{python2026}
+Python Software Foundation (2026)
+\textit{Python Language Reference} [software]. \url{https://www.python.org/}
+
+\bibitem[Schroeder et~al.(2026)]{nhgis2026}
+Schroeder, J., Van Riper, D., Manson, S., Cooper, G., Krause, Z., Kugler, T., Zhu, T. and
+Ruggles, S. (2026)
+\textit{IPUMS National Historical Geographic Information System: Version 21.0} [dataset].
+Minneapolis, MN: IPUMS. \url{https://doi.org/10.18128/D050.V21.0}
+
+\bibitem[Seabold and Perktold(2010)]{seabold2010}
+Seabold, S. and Perktold, J. (2010)
+`Statsmodels: Econometric and statistical modeling with Python'.
+In: \textit{Proceedings of the 9th Python in Science Conference}. pp.~92--96.
+\url{https://doi.org/10.25080/Majora-92bf1922-011}
 
 \bibitem[Slater and Villarini(2016)]{slater2016}
 Slater, L.J. and Villarini, G. (2016)
 `Recent trends in U.S. flood risk'.
 \textit{Geophysical Research Letters}. 43(24). pp.~12428--12436. \url{https://doi.org/10.1002/2016GL071199}
 
+\bibitem[Smith et~al.(2026)]{patsy2026}
+Smith, N.J., et~al. (2026)
+\textit{Patsy: Describing statistical models in Python} [software]. \url{https://patsy.readthedocs.io/}
+
 \bibitem[Tellman et~al.(2020)]{tellman2020}
 Tellman, B., Schank, C., Schwarz, B., Howe, P.D. and de Sherbinin, A. (2020)
 `Using disaster outcomes to validate components of social vulnerability to floods: Flood deaths and property damage across the USA'.
 \textit{Sustainability}. 12(15). 6006. \url{https://doi.org/10.3390/su12156006}
 
+\bibitem[{U.S. Army Corps of Engineers}(2026)]{usace2026}
+U.S. Army Corps of Engineers (2026)
+\textit{National Levee Database}. \url{https://levees.sec.usace.army.mil/}
+
+\bibitem[{U.S. Geological Survey}(2026)]{usgs2026}
+U.S. Geological Survey (2026)
+\textit{National Water Information System}. \url{https://waterdata.usgs.gov/nwis}
+
+\bibitem[Virtanen et~al.(2020)]{virtanen2020}
+Virtanen, P., Gommers, R., Oliphant, T.E., Haberland, M., Reddy, T., Cournapeau, D., et~al. (2020)
+`SciPy 1.0: Fundamental algorithms for scientific computing in Python'.
+\textit{Nature Methods}. 17. pp.~261--272. \url{https://doi.org/10.1038/s41592-019-0686-2}
+
 \end{thebibliography}
+\begin{itemize}
+    \item Code development and report revisions were assisted by Claude; however, all references and links were independently reviewed and verified for accuracy.
+\end{itemize}
+
 
 \section{Links}
-\textcolor{blue}{[edit this section later, this is so saketh can see the variables in GEE]}
 
-\url{https://developers.google.com/earth-engine/datasets/catalog/OREGONSTATE_PRISM_ANd#bands}
+\subsection*{Github Repository}
+\begin{itemize}
+    \item \url{https://github.com/AAA-zzZZ/CSE472-Project-2.git}
+\end{itemize}
 
-\url{https://developers.google.com/earth-engine/datasets/catalog/JRC_GHSL_P2023A_GHS_BUILT_S}
+\subsection*{Google Earth Engine App}
+\begin{itemize}
+    \item \textbf{App: }
+    \url{ https://code.earthengine.google.com/?accept_repo=users/ezheng3/midwest_flood_impact}
+    \item \textbf{Assets for App: }\url{https://code.earthengine.google.com/?asset=projects/cse472-project-2/assets/midwest_flood_app_table}
+    \begin{itemize}
+    \item Access for the assets have been granted for Ali Beigi and Saketh Vishnubhatla
+    \item Outside Access has to be granted manually
+    \end{itemize}
+\end{itemize}
+\subsection*{Google Earth Engine Resources}
 
-\url{}
+\begin{itemize}
+    \item \textbf{PRISM (Climate Data): } \url{https://developers.google.com/earth-engine/datasets/catalog/OREGONSTATE_PRISM_ANd#bands}
+    \item \textbf{ERA5-Land: }
+    \url{https://developers.google.com/earth-engine/datasets/catalog/ECMWF_ERA5_LAND_MONTHLY_AGGR}\textbf{ and  }\url{https://developers.google.com/earth-engine/datasets/catalog/ECMWF_ERA5_LAND_DAILY_AGGR}
+    \item \textbf{GHSL (Global Human Settlement Layer): } \url{https://developers.google.com/earth-engine/datasets/catalog/JRC_GHSL_P2023A_GHS_BUILT_S}
+    \item \textbf{Annual NLCD: }\url{https://gee-community-catalog.org/projects/annual_nlcd/}
+    \item \textbf{MERIT Hydro: }\url{https://developers.google.com/earth-engine/datasets/catalog/MERIT_Hydro_v1_0_1}
+\end{itemize}
+
 
 \end{document}
