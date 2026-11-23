@@ -92,12 +92,18 @@ The current app is **[`gee_app/Midwest/flood_explorer_app3.js`](gee_app/Midwest/
 It covers all 12 states, 2017–2023, with the chance of damage, the recorded SHELDUS loss class
 and every model input as county layers.
 
+**Published copy:** the Code Editor repository `users/ezheng3/midwest_flood_impact` (script
+`flood_explorer`) runs this file against the asset
+`projects/cse472-project-2/assets/midwest_flood_app_table`. To get it, open
+<https://code.earthengine.google.com/?accept_repo=users/ezheng3/midwest_flood_impact> (needs
+access from the owner). To set up your own copy instead:
+
 1. In the [Earth Engine Code Editor](https://code.earthengine.google.com), upload
    [`gee_app/Midwest/midwest_flood_app_table.csv`](gee_app/Midwest/midwest_flood_app_table.csv)
    as a table asset (**Assets → NEW → CSV file**). Leave the coordinate fields empty: rows are
    matched to counties by the `key` column.
-2. Set `ASSET_ID` at the top of the script to your asset's ID
-   (for example `projects/<your-project>/assets/midwest_flood_app_table`).
+2. Set `ASSET_ID` (line 21) to your asset's ID, for example
+   `projects/<your-project>/assets/midwest_flood_app_table`.
 3. Paste the script into a new file and press **Run**. Pick a layer, year and month, then click a
    county for its details.
 

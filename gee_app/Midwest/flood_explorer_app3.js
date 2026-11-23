@@ -18,7 +18,7 @@
 // minor under $10k, moderate $10k-$100k, major $100k-$1M, severe $1M or more. Counties are ranked by
 // the chance of a severe loss, P(damage) x P($1M or more | damage).
 
-var ASSET_ID = 'projects/flood-513221/assets/midwest_flood_app_table';
+var ASSET_ID = 'projects/cse472-project-2/assets/midwest_flood_app_table';
 
 // ---------- Study area and prediction table ----------
 // n = counties in the table; top = the state's top 5% of counties (the 'top5' column)
