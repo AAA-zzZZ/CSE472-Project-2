@@ -8,8 +8,7 @@ Inputs:
   --inputs      panel_county_month.csv        from build_panel.py (W, X, terrain)
   --outcome     model_data_monthly_panel.csv  from build_monthly_panel.py (Y, census housing)
   --thresholds  out/prism_midwest/w_county_thresholds.csv
-                                              from w_indices.py (C: PRISM 2000-2009 rain climate;
-                                              out/w_county_thresholds.csv is the NOAA 1951-1999 one)
+                                              from w_indices.py (C: PRISM 2000-2009 rain climate)
   --clean-dir   data/clean/                   optional tables from the data-collection guide;
                                               each is joined if its file exists:
       census_county_year.csv         GEOID, year, housing_units, population, median_value, ...

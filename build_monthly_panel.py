@@ -9,8 +9,8 @@ import pandas as pd
 # run data_clean.py and housing_features.py first.
 # the only input attached here is census housing (x); w, c, x and a from the other
 # sources are joined later by merge_panel.py
-LOSS_FILE = 'loss_cleaned_monthly.csv'
-EXPOSURE_FILE = 'housing_county_year.csv'  # written by housing_features.py
+LOSS_FILE = 'data/interim/loss_cleaned_monthly.csv'
+EXPOSURE_FILE = 'data/interim/housing_county_year.csv'  # written by housing_features.py
 START, END = 2000, 2023
 
 # the 12 states, by state FIPS code

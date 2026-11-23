@@ -2,7 +2,7 @@
 County census table for the model: exposure (X) and vulnerability / capacity (A), one row per
 county per year, 1999-2023.
 
-Input : nhgis0001_csv/nhgis0001_csv/   IPUMS NHGIS extract "flood census 2000-2023"
+Input : data/raw/nhgis0001_csv/nhgis0001_csv/   IPUMS NHGIS extract "flood census 2000-2023"
           nhgis0001_ts_nominal_county.csv   time series AV0 population, A41 housing units,
                                             B79 median household income, BV3 poverty by age
           nhgis0001_ds*_county.csv          source tables, 2000 Census SF3a and each ACS
@@ -39,7 +39,7 @@ import re
 import numpy as np
 import pandas as pd
 
-SRC = "nhgis0001_csv/nhgis0001_csv"
+SRC = "data/raw/nhgis0001_csv/nhgis0001_csv"
 OUT = "data/clean/census_county_year.csv"
 STATES = ["17", "18", "19", "20", "26", "27", "29", "31", "38", "39", "46", "55"]
 OLD_TO_NEW = {"46113": "46102"}        # Shannon County SD became Oglala Lakota (2015)
@@ -182,7 +182,7 @@ census = census.reset_index()
 # ---------------------------------------------------------------
 # 4. checks and save
 # ---------------------------------------------------------------
-panel_counties = set(pd.read_csv("out/w_county_thresholds.csv", dtype={"GEOID": str})["GEOID"])
+panel_counties = set(pd.read_csv("out/prism_midwest/w_county_thresholds.csv", dtype={"GEOID": str})["GEOID"])
 extra, missing = sorted(set(counties) - panel_counties), sorted(panel_counties - set(counties))
 print(f"\n{len(counties)} counties (panel has {N_COUNTIES}); not in panel: {extra[:5]}; missing: {missing[:5]}")
 census = census[census["GEOID"].isin(panel_counties)]

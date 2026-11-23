@@ -5,8 +5,8 @@ import pandas as pd
 # cleans the SHELDUS county-month flood losses, the outcome of the model.
 # SHELDUS is used ONLY for the outcome; every input comes from other sources.
 # the county-year version of this script is legacy/data_clean.py
-LOSS_FILE = 'direct_loss_aggregated_output_32423.csv'
-YEARLY_FILE = 'loss_output_year_county.csv'  # only used to cross-check the totals
+LOSS_FILE = 'data/raw/direct_loss_aggregated_output_32423.csv'
+YEARLY_FILE = 'data/raw/loss_output_year_county.csv'  # only used to cross-check the totals
 
 # read FIPS as a string so leading zeros are never lost, then pad in case a
 # spreadsheet tool stripped them
@@ -172,5 +172,5 @@ print(season.round(3).to_string())
 front = ['StateName', 'CountyName', 'County_FIPS', 'Year', 'Month', 'Hazard']
 data = data[front + [c for c in data.columns if c not in front]]
 data = data.sort_values(KEY).reset_index(drop=True)
-data.to_csv('loss_cleaned_monthly.csv', index=False)
-print(f'\nsaved loss_cleaned_monthly.csv: {len(data)} rows, {data.shape[1]} columns')
+data.to_csv('data/interim/loss_cleaned_monthly.csv', index=False)
+print(f'\nsaved data/interim/loss_cleaned_monthly.csv: {len(data)} rows, {data.shape[1]} columns')

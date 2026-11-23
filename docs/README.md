@@ -1,7 +1,7 @@
 # Files Used to Build and Feed the Models
 
 This lists every script and data folder that creates the flood-loss models in the write-up
-(`push_to_main/Writeup.tex`) or supplies data to them, in pipeline order. Each entry gives its
+(`report/Writeup.tex`) or supplies data to them, in pipeline order. Each entry gives its
 path from the repository root, what it does, what is inside, and for data, where it came from
 and how and why it was changed.
 
@@ -46,7 +46,7 @@ SHELDUS is used for the outcome. Nothing derived from losses is an input to the 
 The one exception is a check in `causal_model.py`, which adds each county's flood history (damaged
 months per year over the previous 10 years) as a control; see section 7.
 
-### `direct_loss_aggregated_output_32423.csv`
+### `data/raw/direct_loss_aggregated_output_32423.csv`
 - **What:** the raw SHELDUS export. One row per county, month and hazard, with property and crop
   damage, in nominal dollars and adjusted to 2024 dollars, plus per-capita values, durations and
   record counts.
@@ -54,11 +54,11 @@ months per year over the previous 10 years) as a control; see section 7.
   State University), hazard **Flooding**, 12 Midwest states, 1960–2024.
 - **Changed:** no, raw input.
 
-### `loss_output_year_county.csv`
+### `data/raw/loss_output_year_county.csv`
 - **What:** the same SHELDUS query by county-year.
 - **Use:** check only. `data_clean.py` confirms the monthly rows add up to these yearly totals.
 
-### `data_clean.py` → `loss_cleaned_monthly.csv`
+### `data_clean.py` → `data/interim/loss_cleaned_monthly.csv`
 - **What:** cleans the raw SHELDUS county-month losses.
 - **How the data is changed, and why:**
   - FIPS codes are read as text and padded to 5 digits, so leading zeros are never lost.
@@ -74,12 +74,12 @@ months per year over the previous 10 years) as a control; see section 7.
   - `log10(x + 1)` columns are added: dollar losses are very skewed, and the models work on a
     log scale.
 
-### `nhgis0001_csv/nhgis0001_ts_nominal_county.csv` (+ `_codebook.txt`)
+### `data/raw/nhgis0001_csv/nhgis0001_ts_nominal_county.csv` (+ `_codebook.txt`)
 - **What:** IPUMS NHGIS time series A62: urban and rural housing units by county, censuses
   1970–2020.
 - **Source:** IPUMS NHGIS (https://www.nhgis.org), extract `nhgis0001`.
 
-### `housing_features.py` → `housing_county_year.csv`
+### `housing_features.py` → `data/interim/housing_county_year.csv`
 - **What:** housing units and urban share for every county and year, 1999–2023.
 - **How changed, and why:** each year takes the most recent census at or before it, so no
   later census leaks into an earlier year. The old South Dakota codes are merged as above.
@@ -181,7 +181,7 @@ county.
 
 ## 5. Census and OpenFEMA (adaptation and exposure)
 
-### `nhgis0001_csv/nhgis0001_csv/` → `census_features.py` → `data/clean/census_county_year.csv`
+### `data/raw/nhgis0001_csv/nhgis0001_csv/` → `census_features.py` → `data/clean/census_county_year.csv`
 - **What:** per county and year 1999–2023: housing units, population, median home value, median
   household income, poverty rate, mobile-home share and share of homes built before 1980.
 - **Source:** IPUMS NHGIS extract of the 2000 Census (SF3a) and each ACS 5-year release

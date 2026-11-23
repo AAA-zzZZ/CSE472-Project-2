@@ -5,8 +5,8 @@ CSE 472, Project 2. We predict, for every county and month in 12 Midwest states 
 also test how much rain climate and community preparedness change the effect of a storm. An
 Earth Engine app maps the predictions and the inputs.
 
-- **Write-up:** [`push_to_main/Writeup.tex`](push_to_main/Writeup.tex)
-- **Every file, its source and how the data is changed:** [`push_to_main/README.md`](push_to_main/README.md)
+- **Write-up:** [`report/Writeup.tex`](report/Writeup.tex)
+- **Every file, its source and how the data is changed:** [`docs/README.md`](docs/README.md)
 - **Papers cited:** [`Literature/`](Literature/)
 - Earlier designs, working notes and exploratory scripts are on the `enci-dev` branch.
 
@@ -34,10 +34,13 @@ Every yearly input is taken from the previous year, so it is known before the mo
 | `merge_panel.py` | Joins everything into `model_panel.csv`, the one table every model reads |
 | `reduced_benchmark.py`, `loss_class_model.py`, `recalibrate.py` | Forecast models |
 | `causal_model.py` | Explanatory models (storm effect, climate and preparedness) |
-| `data/` | Earth Engine exports (`gee_*`), cleaned yearly tables (`clean/`), OpenFEMA notes |
+| `data/` | Earth Engine exports (`gee_*`), yearly tables joined by `merge_panel.py` (`clean/`), OpenFEMA notes |
+| `report/` | The write-up (`Writeup.tex`) |
+| `docs/` | File-by-file description of the pipeline (`README.md`) |
 | `results/` | Scores, coefficients and logs of each model run |
 | `gee_app/` | Earth Engine apps and the prediction tables they read |
-| `direct_loss_aggregated_output_32423.csv`, `loss_output_year_county.csv`, `nhgis0001_csv/` | Raw SHELDUS and NHGIS inputs |
+| `data/raw/` | Raw inputs: SHELDUS losses (`direct_loss_aggregated_output_32423.csv`, `loss_output_year_county.csv`) and the NHGIS census extract (`nhgis0001_csv/`) |
+| `data/interim/` | Cleaned losses and housing units (`loss_cleaned_monthly.csv`, `housing_county_year.csv`), read by `build_monthly_panel.py` |
 
 ## Rebuild
 

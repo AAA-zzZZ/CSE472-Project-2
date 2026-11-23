@@ -8,7 +8,7 @@ import pandas as pd
 # each year uses the most recent census at or before it, so no later census leaks in.
 # this is the housing part of the earlier exposure_features.py; it will be replaced
 # by the census/ACS table from the data-collection guide (data/clean/)
-HOUSING_FILE = 'nhgis0001_csv/nhgis0001_ts_nominal_county.csv'
+HOUSING_FILE = 'data/raw/nhgis0001_csv/nhgis0001_ts_nominal_county.csv'
 STATES = ['17', '18', '19', '20', '26', '27', '29', '31', '38', '39', '46', '55']
 CENSUS_YEARS = [1970, 1980, 1990, 2000, 2010, 2020]
 START, END = 1999, 2023
@@ -59,6 +59,6 @@ out = out[['County_FIPS', 'Year', 'log_housing_units', 'urban_share']].sort_valu
 missing = out[['log_housing_units', 'urban_share']].isna().sum()
 print('rows missing a value:', missing[missing > 0].to_dict() or 'none')
 
-out.to_csv('housing_county_year.csv', index=False)
-print(f'saved housing_county_year.csv: {out["County_FIPS"].nunique()} counties x '
+out.to_csv('data/interim/housing_county_year.csv', index=False)
+print(f'saved data/interim/housing_county_year.csv: {out["County_FIPS"].nunique()} counties x '
       f'{END - START + 1} years = {len(out)} rows')
